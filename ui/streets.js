@@ -11,15 +11,15 @@ function streetStyleRules(imagery) {
   const primary=(_z,f)=>['motorway','trunk','primary'].includes(f.props.class);
   const localBoundary=(_z,f)=>Number(f.props.admin_level)>=5&&!Number(f.props.maritime)&&!Number(f.props.disputed);
   const labelProps=()=>['name:'+lang,'name:'+lang.split('-')[0],'name','name:en','ref'];
-  const text={labelProps,font:'500 12px "Segoe UI", "Microsoft YaHei UI", sans-serif',fill:'#e7ecdf',stroke:'#20323a',width:3};
+  const text={labelProps,font:'500 12px "Segoe UI", "Microsoft YaHei UI", sans-serif',fill:imagery?'#fff':'#e7ecdf',stroke:imagery?'#152226':'#20323a',width:imagery?4:3};
   const paintRules=imagery?[]:[
     polygon('landcover','#29463e',(_z,f)=>['wood','grass'].includes(f.props.class)),
     polygon('park','#2a493e'),polygon('water','#123b50'),
     line('waterway',{color:'#427287',width:z=>z>14?2.5:1}),
     polygon('building','#46515a',undefined,15)
   ];
-  paintRules.push(line('transportation',{color:imagery?'#a9b4b4':'#6d7e80',width:z=>z>=16?3.3:z>=13?1.8:1}),
-    line('transportation',{color:'#c2ac78',width:z=>z>=15?4:z>=12?2.6:1.4},primary),
+  paintRules.push(line('transportation',{color:imagery?'#e2e6df':'#6d7e80',opacity:imagery?.55:1,width:z=>imagery?(z>=15?1.4:.9):(z>=16?3.3:z>=13?1.8:1)}),
+    line('transportation',{color:imagery?'#ffe39e':'#c2ac78',opacity:imagery?.85:1,width:z=>imagery?(z>=15?2:1.3):(z>=15?4:z>=12?2.6:1.4)},primary),
     line('boundary',{dash:[5,4],dashColor:'#ab9fab',dashWidth:1.4},localBoundary));
   const lineNames=(dataLayer,minzoom,filter)=>({dataLayer,minzoom,filter,symbolizer:new v.LineLabelSymbolizer({...text,repeatDistance:225})});
   const labelRules=[

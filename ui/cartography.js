@@ -108,6 +108,8 @@ function refreshCartography(){
     if(z>=3.75&&viewport.intersects(leafletBounds(f)))ensureGeometry(code);
     const geom=z>=3.75&&exact.has(code)?exact.get(code):f.geometry;
     showShape(code,geom,p);p.setStyle(countryStyle(code));
+    if(z>=9&&p.getTooltip())p.unbindTooltip();
+    else if(z<9&&!p.getTooltip())p.bindTooltip(()=>make('span',countryName(f)),{sticky:true});
   }
   if(areas[region])ensureGeometry(region);
   const child=areas[region]?region:'';
@@ -170,7 +172,6 @@ function setupCartography(){
     noWrap:true,zIndex:0,keepBuffer:1,updateWhenIdle:true,bounds:[[-85.051129,-180],[85.051129,180]]}).addTo(map);
   L.geoJSON(countryFeatures,{style:f=>countryStyle(f.properties.iso),onEachFeature:(f,p)=>{
     const code=f.properties.iso;countryLayers.set(code,p);shownGeometry.set(code,f.geometry);
-    p.bindTooltip(()=>make('span',countryName(f)),{sticky:true});
     p.on('dblclick',e=>{
       if(e.originalEvent)L.DomEvent.stopPropagation(e.originalEvent);
       const ll=[e.latlng.lat,e.latlng.lng];

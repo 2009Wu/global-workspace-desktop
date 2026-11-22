@@ -78,4 +78,54 @@ export async function checkMap(page, until, root) {
   assert.equal(await evalInApp('locationBlock({}).textContent'), '来源未提供位置');
   await evalInApp('map.closePopup();delete cache.mapFixture;render();true');
   await select('001');
+  await page.click('[data-layer="sat"]');
+  assert.ok(await evalInApp('imageryMode==="mosaic"&&document.getElementById("imagery").hidden'));
+  await select('CN-DIA');
+  assert.ok(await evalInApp('matchesRegion({location:[25.74333,123.47333]})'));
+  await select('001');
+  await evalInApp(`map.setView([39.91,116.407],11,{animate:false});true`);
+  await until(()=>evalInApp('!!document.querySelector(".district-label") && streetStyle.endsWith("/imagery")'));
+  await evalInApp(`testPainted.clear();CanvasRenderingContext2D.prototype.fillText=function(s,...args){testPainted.add(s);return testFill.call(this,s,...args)};
+    map.setView([39.9074,116.4072],18,{animate:false});true`);
+  await until(()=>evalInApp('Array.from(testPainted).some(s=>/街|路|胡同/.test(s)) && Array.from(satellite.getContainer().querySelectorAll("canvas[data-native-zoom]")).some(c=>c.dataset.nativeZoom>=17) && !satellite.isLoading()'));
+  assert.ok(await evalInApp(`(()=>{const c=satellite.getContainer().querySelector('canvas[data-native-zoom="18"]'),pixels=c?.getContext('2d').getImageData(0,0,128,128).data;
+    return !!pixels&&new Set(pixels).size>80&&Array.from(streets.getContainer().querySelectorAll('canvas')).every(c=>!c.style.backgroundColor)})()`));
+  await new Promise(r=>setTimeout(r,500));
+  await evalInApp('testPainted.clear();map.setView([39.909,116.413],16,{animate:false});true');
+  await until(()=>evalInApp('Array.from(testPainted).some(s=>/街|路|胡同/.test(s)) && !satellite.isLoading() && !streets.isLoading()'));
+  await new Promise(r=>setTimeout(r,450));
+  const satShot=await page.call('Page.captureScreenshot',{format:'png',clip});
+  fs.writeFileSync(path.join(root,'satellite-city.png'),Buffer.from(satShot.data,'base64'));
+  await evalInApp(`CanvasRenderingContext2D.prototype.fillText=testFill;map.setView([40.7549,-73.984],19,{animate:false});
+    cache.satFixture={records:[record('eonet','sat-click','Map location test',Date.now(),[40.7549,-73.984],1,'','')]};render();true`);
+  await until(()=>evalInApp('satellite.getContainer().querySelector("canvas[data-native-zoom=\\\"19\\\"]")?.width===256'));
+  assert.ok(await evalInApp(`(async()=>{
+    const p=map.project([40.7549,-73.984],19).divideBy(256).floor(), c={x:p.x|1,y:p.y|1,z:19};
+    const missing=worldImageService+'/tile/19/'+c.y+'/'+c.x+'?blankTile=false';
+    const parent=worldImageService+'/tile/18/'+Math.floor(c.y/2)+'/'+Math.floor(c.x/2)+'?blankTile=false';
+    const original=window.fetch,tile=document.createElement('canvas');tile.width=tile.height=256;
+    window.fetch=(url,...args)=>url===missing?Promise.resolve(new Response(null,{status:404})):original(url,...args);
+    try{await satellite.paintImage(tile,c,new AbortController().signal);}
+    finally{window.fetch=original;}
+    if(tile.dataset.nativeZoom!=='18')return false;
+    const image=await createImageBitmap(await (await fetch(parent)).blob());
+    const reference=document.createElement('canvas');reference.width=reference.height=256;
+    reference.getContext('2d').drawImage(image,128,128,128,128,0,0,256,256);image.close();
+    return tile.toDataURL()===reference.toDataURL();
+  })()`));
+  await page.click('.leaflet-marker-icon[title="Map location test"]');
+  assert.ok(await evalInApp('locationPopup.isOpen() && locationPopup.getLatLng().lng===-73.984'));
+  await evalInApp(`map.closePopup();delete cache.satFixture;map.setView([40,-74],6,{animate:false});
+    const menu=document.getElementById("imageryMode");menu.value="daily";menu.dispatchEvent(new Event("change"));true`);
+  await evalInApp(`const date=document.getElementById("imagery");date.value="2025-08-10";date.dispatchEvent(new Event("change"));true`);
+  await until(()=>evalInApp('!document.getElementById("imagery").hidden && !!satellite.getContainer().querySelector("img.leaflet-tile-loaded[src*=\\\"2025-08-10\\\"]")'));
+  await page.call('Network.setBlockedURLs',{urls:['*services.arcgisonline.com/*']});
+  try{
+    await evalInApp(`document.getElementById('imageryMode').value='mosaic';document.getElementById('imageryMode').dispatchEvent(new Event('change'));true`);
+    await until(()=>evalInApp('!document.getElementById("imageryRetry").hidden'));
+  }finally{await page.call('Network.setBlockedURLs',{urls:[]});}
+  await page.click('#imageryRetry');
+  await until(()=>evalInApp('document.getElementById("imageryRetry").hidden && !!satellite.getContainer().querySelector("canvas[data-native-zoom]")'));
+  await page.click('[data-layer="all"]');
+  await select('001');
 }
