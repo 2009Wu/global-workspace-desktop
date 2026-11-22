@@ -76,14 +76,11 @@ function ensureGeometry(code) {
     requests.set(code,task);
   }
 }
-const atlasInks=['#776281','#747790','#547b74','#956666','#9b815e','#65728a','#827058','#705372','#736d97','#817f69'];
 function countryStyle(code) {
   const selected=region===code||(areas[region]&&code==='CHN');
   const sat=layer==='sat';
-  const overview=!sat&&map.getZoom()<6;
-  const ink=atlasInks[(code.charCodeAt(0)*17+code.charCodeAt(1)*7+code.charCodeAt(2))%atlasInks.length];
-  return {color:selected?'#ecd7ae':sat?'#c3ccc4':overview?'#352b3f':'#759497',weight:selected?1.6:map.getZoom()>=5?1.15:.85,
-    opacity:selected?.95:sat?.7:.88,fillColor:overview?ink:selected?'#58bfa2':'#425b59',fillOpacity:sat?0:overview?(selected?.77:.58):selected?.17:.085,
+  return {color:selected?'#9ddfc7':sat?'#c3ccc4':'#759497',weight:selected?1.6:map.getZoom()>=5?1.15:.75,
+    opacity:selected?.95:sat?.7:.78,fillColor:selected?'#58bfa2':'#425b59',fillOpacity:sat?0:selected?.17:.085,
     smoothFactor:.38,bubblingMouseEvents:false};
 }
 function showShape(code,geometry,path) {
@@ -99,7 +96,6 @@ function scheduleCartography(){
 function refreshCartography(){
   if(!map||!relief||$('mapPane').hidden)return;
   const viewport=map.getBounds().pad(.1),z=map.getZoom();
-  $('map').classList.toggle('hud-atlas',layer!=='sat'&&z<6);
   configureStreets(z);
   const attribution=lang==='zh-Hans'?'Natural Earth · 中国边界视角':lang==='zh-Hant'?'Natural Earth · 中國邊界視角':'Natural Earth · China boundary view';
   if(lastAttribution!==attribution){
@@ -172,7 +168,7 @@ function setupCartography(){
   map.createPane('hydrography');
   map.getPane('hydrography').style.cssText='z-index:410;pointer-events:none';
   physicalLayer=L.layerGroup().addTo(map);
-  relief=L.tileLayer('atlas/relief-{z}-{x}-{y}.webp',{className:'atlas-relief',maxNativeZoom:3,maxZoom:10,
+  relief=L.tileLayer('atlas/relief-{z}-{x}-{y}.webp',{maxNativeZoom:3,maxZoom:10,
     noWrap:true,zIndex:0,keepBuffer:1,updateWhenIdle:true,bounds:[[-85.051129,-180],[85.051129,180]]}).addTo(map);
   L.geoJSON(countryFeatures,{style:f=>countryStyle(f.properties.iso),onEachFeature:(f,p)=>{
     const code=f.properties.iso;countryLayers.set(code,p);shownGeometry.set(code,f.geometry);
@@ -233,8 +229,8 @@ function paintPlaceLabels(z,viewport,occupied){
   paintDistricts(z,viewport,place);
   if(z>=9&&streets&&!streetFailures.size)return;
   if(z>=3.5)for(const [code,a] of Object.entries(areas))place([a.lat,a.lon],areaName(code),'area-label',lang.startsWith('zh')?62:115);
-  if(z>=1.25)for(const f of features){
-    if((z<2.25&&f.properties.rank>2)||(z<3.5&&f.properties.rank>3))continue;
+  if(z>=2.25)for(const f of features){
+    if(z<3.5&&f.properties.rank>3)continue;
     place([f.properties.lat,f.properties.lon],countryName(f),'country-label',85);
   }
   if(z<4)return;
