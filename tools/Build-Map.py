@@ -71,6 +71,16 @@ def build_countries(files):
         d = feat.record.as_dict()
         iso = d["ADM0_A3"]
         g = shape(feat.shape.__geo_interface__)
+        if iso == "CHN":
+            coast = Path(__file__).parent / "data/diaoyu-land.geojson"
+            islands = shape(json.loads(coast.read_text(encoding="utf-8")))
+            # Replace the generalized Natural Earth island outlines only in this group.
+            mainland = [p for p in get_parts(g) if not
+                        (123.40 < p.bounds[0] < p.bounds[2] < 124.62 and
+                         25.68 < p.bounds[1] < p.bounds[3] < 25.99)]
+            g = MultiPolygon(mainland + list(get_parts(islands)))
+            children["CN-DIA"] = islands
+            blob("CN-DIA.gz", geometry(islands))
         countries[iso] = g
         props = dict(iso=iso, iso2=d["ISO_A2_EH"], en=d["NAME_EN"], name=d["NAME_ZH"],
                      region=d["CONTINENT"], rank=d["LABELRANK"], lat=d["LABEL_Y"], lon=d["LABEL_X"])
@@ -90,7 +100,8 @@ def build_countries(files):
             children[code] = g
             blob(code + ".gz", geometry(g))
     for iso, coords in {"CN-TW": [(121.565,25.04),(120.30,22.63)],
-                        "CN-AKS": [(80,35.2)], "CN-ZAN": [(91.86,27.59),(93.62,27.10)]}.items():
+                        "CN-AKS": [(80,35.2)], "CN-ZAN": [(91.86,27.59),(93.62,27.10)],
+                        "CN-DIA": [(123.47333,25.74333),(123.68167,25.92333),(124.55833,25.92167)]}.items():
         for xy in coords:
             pt = Point(xy)
             assert children[iso].covers(pt) and countries["CHN"].covers(pt) and not countries["IND"].covers(pt), (iso, xy)

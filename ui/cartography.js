@@ -1,6 +1,7 @@
 'use strict';
 
 const areas = {
+  'CN-DIA': {names:['钓鱼岛及其附属岛屿','釣魚島及其附屬島嶼','Diaoyu Islands'], lat:25.74333, lon:123.47333, match:/\b(diaoyu(?:dao)?|diaoyutai|senkaku)\b|钓鱼岛|釣魚島|釣魚臺/i},
   'CN-TW': {names:['台湾','臺灣','Taiwan'], lat:23.7, lon:120.96, match:/\b(taiwan(?:ese)?|taipei)\b|台湾|臺灣|台灣/i},
   'CN-AKS': {names:['阿克赛钦','阿克賽欽','Aksai Chin'], lat:35.15, lon:79.8, match:/\baksai chin\b|阿克赛钦|阿克賽欽/i},
   'CN-ZAN': {names:['藏南','藏南','Zangnan (South Tibet)'], lat:28.2, lon:94.85, match:/\b(arunachal(?: pradesh)?|zangnan|south(?:ern)? tibet|itanagar|tawang)\b|藏南|达旺|達旺/i}
@@ -95,6 +96,7 @@ function scheduleCartography(){
 function refreshCartography(){
   if(!map||!relief||$('mapPane').hidden)return;
   const viewport=map.getBounds().pad(.1),z=map.getZoom();
+  configureStreets(z);
   const attribution=lang==='zh-Hans'?'Natural Earth · 中国边界视角':lang==='zh-Hant'?'Natural Earth · 中國邊界視角':'Natural Earth · China boundary view';
   if(lastAttribution!==attribution){
     if(lastAttribution)map.attributionControl.removeAttribution(lastAttribution);
@@ -119,7 +121,7 @@ function refreshCartography(){
   }
   if(layer==='sat'){if(map.hasLayer(relief))relief.remove();}else if(!map.hasLayer(relief))relief.addTo(map);
   for(const [code,bounds] of Object.entries(terrainFootprints)){
-    const visible=layer!=='sat'&&z>=5&&viewport.intersects(L.latLngBounds(bounds));
+    const visible=layer!=='sat'&&z<11&&z>=5&&viewport.intersects(L.latLngBounds(bounds));
     if(visible&&!terrainInsets.has(code)){
       const image=L.imageOverlay('atlas/terrain-'+code+'.webp',bounds,{
         pane:'tilePane',zIndex:2,interactive:false,attribution:'Mapzen terrain · USGS / NOAA'
@@ -140,7 +142,7 @@ function paintWater(viewport,z){
   }
   const west=viewport.getWest(),east=viewport.getEast(),north=viewport.getNorth(),south=viewport.getSouth();
   const desired=new Set();
-  if(layer!=='sat'){
+  if(layer!=='sat'&&z<10){
     for(const f of physicalData){
       if(z+.5<f.properties.z)continue;
       const [w,s,e,n]=f.bbox;
@@ -158,6 +160,9 @@ function paintWater(viewport,z){
   for(const [f,path] of shownWater)if(!desired.has(f)){physicalLayer.removeLayer(path);shownWater.delete(f);}
 }
 function setupCartography(){
+  map.attributionControl.addAttribution('<a href="https://www.geonames.org/">GeoNames</a> · <a href="https://www.openstreetmap.org/copyright">© OSM</a>');
+  map.createPane('streetDetail');
+  map.getPane('streetDetail').style.cssText='z-index:415;pointer-events:none';
   map.createPane('hydrography');
   map.getPane('hydrography').style.cssText='z-index:410;pointer-events:none';
   physicalLayer=L.layerGroup().addTo(map);
@@ -170,15 +175,41 @@ function setupCartography(){
       if(e.originalEvent)L.DomEvent.stopPropagation(e.originalEvent);
       const ll=[e.latlng.lat,e.latlng.lng];
       const area=code==='CHN'&&Object.keys(areas).find(key=>insideArea(key,ll));
-      setRegion(area||code);
+      if(map.getZoom()>=9||region===(area||code))map.setZoomAround(e.latlng,Math.min(19,map.getZoom()+1));
+      else setRegion(area||code);
     });
   }}).addTo(map);
   L.control.scale({position:'bottomleft',imperial:false,maxWidth:95}).addTo(map);
   map.on('moveend zoomend',scheduleCartography);
+  map.on('zoomend',nearbyNames);
   Promise.all([readVector('lakes'),readVector('rivers')]).then(([lakes,rivers])=>{
     physicalData=lakes.concat(rivers);scheduleCartography();
   }).catch(console.warn);
   readVector('places').then(data=>{cityData=data;drawMap();}).catch(console.warn);
+}
+const districtData=new Map(), districtRequests=new Set();
+function paintDistricts(z,viewport,place){
+  if(z<8)return;
+  const cell=(v,origin,max)=>Math.max(0,Math.min(max,Math.floor((v+origin)/15)));
+  for(let x=cell(viewport.getWest(),180,23);x<=cell(viewport.getEast(),180,23);x++){
+    for(let y=cell(viewport.getSouth(),90,11);y<=cell(viewport.getNorth(),90,11);y++){
+      const key=x+'-'+y;
+      if(!districtCells.has(key))continue;
+      if(!districtData.has(key)){
+        if(!districtRequests.has(key)){
+          districtRequests.add(key);
+          readVector('districts/'+key).then(rows=>{districtData.set(key,rows);drawMap();})
+            .catch(console.warn).finally(()=>districtRequests.delete(key));
+        }
+        continue;
+      }
+      for(const [level,lat,lon,name,zh] of districtData.get(key)){
+        if(z<(level===2?8:level===3?9:12))continue;
+        const label=lang.startsWith('zh')&&zh?zh:name;
+        place([lat,lon],label,'district-label',Math.min(230,Math.max(44,label.length*(lang.startsWith('zh')?13:7)+12)));
+      }
+    }
+  }
 }
 function paintPlaceLabels(z,viewport,occupied){
   function place(ll,text,cls,width){
@@ -189,6 +220,13 @@ function paintPlaceLabels(z,viewport,occupied){
     L.marker(ll,{interactive:false,keyboard:false,zIndexOffset:-900,icon:L.divIcon({
       className:cls,html:make('span',text),iconSize:[width,18],iconAnchor:[half,9]})}).addTo(labels);
   }
+  if(z>=6){
+    const names=[[25.74333,123.47333,'钓鱼岛','釣魚島','Diaoyu Dao'],[25.92333,123.68167,'黄尾屿','黃尾嶼','Huangwei Yu'],
+      [25.92167,124.55833,'赤尾屿','赤尾嶼','Chiwei Yu'],[25.73,123.54167,'北小岛','北小島','Bei Xiaodao'],[25.72333,123.55,'南小岛','南小島','Nan Xiaodao']];
+    for(const [lat,lon,zh,hant,en] of names)place([lat,lon],lang==='zh-Hans'?zh:lang==='zh-Hant'?hant:en,'area-label',lang.startsWith('zh')?60:95);
+  }
+  paintDistricts(z,viewport,place);
+  if(z>=9&&streets&&!streetFailures.size)return;
   if(z>=3.5)for(const [code,a] of Object.entries(areas))place([a.lat,a.lon],areaName(code),'area-label',lang.startsWith('zh')?62:115);
   if(z>=2.25)for(const f of features){
     if(z<3.5&&f.properties.rank>3)continue;

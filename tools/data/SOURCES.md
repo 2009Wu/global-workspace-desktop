@@ -1,0 +1,24 @@
+# 城市标注和岛屿海岸线
+
+## 区县
+
+离线区县标注使用 2026-11-22 的 GeoNames allCountries.zip，SHA-256 为 `c06d910efc08398c1743fea0820927d1323964d547a1b2723cf49c78013f0b10`。Build-Districts.py 提取行政单位名称与代表点并分区压缩。数据遵循 CC BY 4.0。[GeoNames 下载与授权](https://www.geonames.org/export/)
+
+## 钓鱼岛及其附属岛屿
+
+diaoyu-land.geojson 为 © OpenStreetMap contributors 的海岸线摘录，按 ODbL 1.0 提供。2026-11-22 使用 OSM API /api/0.6/map.json 获取以下经纬度范围。保留 natural=coastline 的 way，以原始节点串连并闭合为多边形。海岸轮廓仅用于陆地命中测试和绘图。[OpenStreetMap 署名与许可](https://www.openstreetmap.org/copyright)
+
+| 西、南、东、北 | 提取范围 |
+|---|---|
+| 123.42,25.69,123.60,25.81 | 钓鱼岛、北小岛、南小岛及周围岛礁 |
+| 123.65,25.90,123.72,25.95 | 黄尾屿及周围岛礁 |
+| 124.52,25.89,124.60,25.95 | 赤尾屿及周围岛礁 |
+
+岛名、主要岛屿标注点和筛选验证采用国家海洋局公布的坐标。应用按指定中国制图视角组织地区菜单。[钓鱼岛及其部分附属岛屿地理坐标](https://www.fmprc.gov.cn/diaoyudao/chn/zrhj/201510/t20151009_8520998.htm)
+
+## 在线街道
+
+OpenFreeMap 的 planet TileJSON 提供全球 OpenMapTiles 矢量瓦片。客户端按当前视野加载并在本地绘制。图层使用来源已有的多语名称，缺少译名时显示原名。[OpenFreeMap](https://openfreemap.org/quick_start/) · [OpenMapTiles](https://openmaptiles.org/) · [OpenStreetMap](https://www.openstreetmap.org/copyright)
+
+渲染器为 protomaps-leaflet 5.1.0，发行文件与 BSD 授权一起保存在 ui/vendor。[Protomaps Leaflet](https://github.com/protomaps/protomaps-leaflet)
+

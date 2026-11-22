@@ -1,0 +1,10 @@
+District labels © GeoNames, CC BY 4.0, https://www.geonames.org/
+Derived from the 2026-11-22 dump. Filtered, rounded and grouped by the application.
+https://creativecommons.org/licenses/by/4.0/
+
+Island coastline geometry and online street data © OpenStreetMap contributors, ODbL 1.0.
+https://www.openstreetmap.org/copyright
+Coastline extracts are included in ui/atlas/CN-DIA.gz as GeoJSON compressed with gzip.
+Their unrounded source geometry is in tools/data/diaoyu-land.geojson in the source distribution.
+Online tiles: OpenFreeMap, https://openfreemap.org/ · © OpenMapTiles, https://openmaptiles.org/
+
