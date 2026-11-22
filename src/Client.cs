@@ -1,0 +1,75 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Drawing;
+using System.Diagnostics;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.WinForms;
+
+internal class Desk : Form {
+ static CoreWebView2Environment env;static readonly List<Desk> windows=new List<Desk>();static Updates update;
+ static string token;static bool quitting;static int tasks;
+ readonly WebView2 browser=new WebView2();readonly string view,data;
+ const string Origin="https://workspace.local";
+ static void Broadcast(string type,object value){foreach(var w in windows.ToArray())w.Send(type,value);}
+ void Send(string type,object value){if(!IsDisposed && browser.CoreWebView2!=null)try{browser.CoreWebView2.PostWebMessageAsJson(C.Json.Serialize(new {type=type,value=value}));}catch(InvalidOperationException){}}
+ static async Task Restart(string stage,string version){
+   quitting=true;try{while(tasks>0)await Task.Delay(100);C.Run(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"Maintenance.exe"),"--apply",stage,version,Process.GetCurrentProcess().Id.ToString());Application.Exit();}catch{quitting=false;throw;}
+ }
+ static void OpenUrl(string url){Uri u;if(Uri.TryCreate(url,UriKind.Absolute,out u)&&u.Scheme=="https"&&u.UserInfo=="")Process.Start(new ProcessStartInfo(u.AbsoluteUri){UseShellExecute=true});}
+ Desk(string view,string data){this.view=view;this.data=data;windows.Add(this);Text=view=="main"?"全球情报工作台":"全球情报工作台 · "+(view=="detail"?"事件详情":view=="map"?"地图":view=="brief"?"事件简报":"事件列表");
+   StartPosition=FormStartPosition.CenterScreen;Size=view=="main"?new Size(1360,860):view=="map"?new Size(900,640):new Size(610,690);
+   string geometry=Path.Combine(C.User,"window-"+view+".json");
+   try{var geo=C.Obj(File.ReadAllText(geometry));var rect=new Rectangle(Convert.ToInt32(geo["x"]),Convert.ToInt32(geo["y"]),Convert.ToInt32(geo["w"]),Convert.ToInt32(geo["h"]));if(rect.Width>=390 && rect.Height>=300 && Screen.AllScreens.Any(sc=>Rectangle.Intersect(sc.WorkingArea,rect).Width>=130 && Rectangle.Intersect(sc.WorkingArea,rect).Height>=80)){StartPosition=FormStartPosition.Manual;Bounds=rect;}}catch{}
+   FormClosing+=(s,e)=>{try{var r=WindowState==FormWindowState.Normal?Bounds:RestoreBounds;C.Atomic(geometry,C.Json.Serialize(new{x=r.X,y=r.Y,w=r.Width,h=r.Height}));}catch{}};
+   MinimumSize=view=="main"?new Size(800,540):new Size(390,340);BackColor=Color.FromArgb(14,25,33);Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+   Controls.Add(new Label{Text="全球情报工作台",AutoSize=true,ForeColor=Color.White,Location=new Point(30,35),Font=new Font("Microsoft YaHei UI",16)});
+   browser.Dock=DockStyle.Fill;Controls.Add(browser);browser.BringToFront();
+   FormClosed+=(s,e)=>{windows.Remove(this);if(view=="main")foreach(var w in windows.ToArray())w.Close();};Shown+=async(s,e)=>await InitBrowser();
+ }
+ async Task InitBrowser(){try{
+   if(env==null){var opts=new CoreWebView2EnvironmentOptions();if(Build.Test)opts.AdditionalBrowserArguments="--remote-debugging-port="+Environment.GetEnvironmentVariable("ATLAS_TEST_PORT")+(File.Exists(Path.Combine(C.Root,"test-offline"))?" --proxy-server=http://127.0.0.1:1":"");
+      env=await CoreWebView2Environment.CreateAsync(null,Path.Combine(C.User,"webview"),opts);}
+   await browser.EnsureCoreWebView2Async(env);var core=browser.CoreWebView2;
+   core.SetVirtualHostNameToFolderMapping("workspace.local",Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"ui"),CoreWebView2HostResourceAccessKind.DenyCors);
+   core.Settings.AreDevToolsEnabled=Build.Test;core.Settings.AreDefaultContextMenusEnabled=false;core.Settings.IsStatusBarEnabled=false;
+   core.NavigationStarting+=(s,e)=>{if(!e.Uri.StartsWith(Origin+"/",StringComparison.Ordinal)){e.Cancel=true;if(e.IsUserInitiated)OpenUrl(e.Uri);}};
+   core.NewWindowRequested+=(s,e)=>{e.Handled=true;if(e.IsUserInitiated)OpenUrl(e.Uri);};
+   core.PermissionRequested+=(s,e)=>{e.State=CoreWebView2PermissionState.Deny;};
+   core.WebMessageReceived+=Message;core.Navigate(Origin+"/index.html?view="+view);
+ }catch(Exception e){C.Log(e.Message);MessageBox.Show("界面启动失败。请检查 Microsoft Edge WebView2 Runtime。\n"+e.Message,Text);Close();}}
+ async void Message(object sender,CoreWebView2WebMessageReceivedEventArgs e){
+    if(!e.Source.StartsWith(Origin+"/index.html?",StringComparison.Ordinal))return;int id=0;
+    try{var msg=C.Obj(e.TryGetWebMessageAsString());id=Convert.ToInt32(msg["id"]);string cmd=C.Str(msg,"cmd"),arg=C.Str(msg,"arg"),val=C.Str(msg,"val");object result=true;
+       switch(cmd){
+       case "ready":
+         result=new {version=Build.Version,view=view,data=data,state=update.State(),fr24=Net.HasKey("fr24"),x=Net.HasKey("x"),github=Net.HasKey("github"),ships=Net.HasKey("ships"),repo=Build.Repo,installError=C.Read(Path.Combine(C.User,"update-error.txt"),"")};
+         if(view=="main"){var unused=update.Check();}break;
+       case "healthy":if(view=="main" && token!=null && System.Text.RegularExpressions.Regex.IsMatch(token,"^[a-f0-9]{32}$"))C.Atomic(Path.Combine(C.Root,"ready-"+token),"ready");break;
+       case "feed":result=await Net.Feed(arg,val);break;
+       case "check":await update.Check();break;
+       case "install":await update.Install();break;
+       case "title":Text=arg.Substring(0,Math.Min(arg.Length,140));break;
+       case "external":OpenUrl(arg);break;
+       case "window":if(new[]{"map","list","brief","detail"}.Contains(arg)){new Desk(arg,val).Show();}break;
+       case "key":if(quitting)throw new IOException("正在重启");Net.SetKey(arg,val);break;
+       case "export":
+         if(quitting)throw new IOException("正在重启");tasks++;
+         try{await Task.Yield();string folder=Build.Test?Path.Combine(C.Root,"test-exports"):Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);if(Build.Test)Directory.CreateDirectory(folder);using(var dlg=new SaveFileDialog{Filter="JSON (*.json)|*.json",FileName=Build.Test?Path.Combine(folder,"workspace-events.json"):"workspace-events.json",InitialDirectory=folder,RestoreDirectory=true}){if(dlg.ShowDialog(this)==DialogResult.OK){string dest=dlg.FileName;await Task.Run(()=>C.Atomic(dest,arg));}else result=false;}}finally{tasks--;}break;
+       case "read":case "write":
+         if(arg!="saved"&&arg!="settings")throw new ArgumentException();string path=Path.Combine(C.User,arg+".json");
+         if(cmd=="read")result=C.Read(path,arg=="saved"?"[]":"{}");else{if(quitting)throw new IOException("正在重启");tasks++;try{C.Atomic(path,val);Broadcast("changed",arg);}finally{tasks--;}}break;
+       case "bookmark":
+         if(quitting)throw new IOException("正在重启");tasks++;
+         try{var path2=Path.Combine(C.User,"saved.json");var saved=C.Json.Deserialize<List<Dictionary<string,object>>>(C.Read(path2,"[]"));var item=C.Obj(val);string key=C.Str(item,"id");saved.RemoveAll(x=>C.Str(x,"id")==key);if(arg=="add")saved.Insert(0,item);C.Atomic(path2,C.Json.Serialize(saved));Broadcast("changed","saved");}finally{tasks--;}break;
+       default:throw new ArgumentException("未知操作");
+       }Send("reply",new {id=id,result=result});
+    }catch(Exception ex){Send("reply",new {id=id,error=ex.Message});}
+ }
+ [STAThread] static void Main(string[] args){C.Init();if(Build.Test && File.Exists(Path.Combine(C.Root,"test-offline")))System.Net.WebRequest.DefaultWebProxy=new System.Net.WebProxy("http://127.0.0.1:1",false);using(var m=new Mutex(false,C.Lock("app"))){if(!C.Own(m,0))return;
+ try{Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);token=args.FirstOrDefault();update=new Updates(()=>Broadcast("update",update.State()),Restart);Application.Run(new Desk("main",""));}finally{m.ReleaseMutex();}}}
+}

@@ -1,0 +1,7 @@
+/release/
+/out/
+/local/
+*.user
+*.key
+*.pdb
+

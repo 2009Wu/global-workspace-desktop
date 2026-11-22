@@ -1,0 +1,8 @@
+* text=auto
+*.dll binary
+*.exe binary
+*.ico binary
+*.js text eol=lf
+*.cs text eol=lf
+*.ps1 text eol=crlf
+
