@@ -34,3 +34,41 @@ nav b{color:#b9b8aa}.panel{border-radius:2px;border-color:#454840}
 .dossier .scroll{padding:clamp(13px,3vw,24px)}.dossier .panelhead{border-bottom:2px solid #9a634e}
 .single header{gap:7px;min-height:43px;height:auto;padding:6px 10px;flex-wrap:wrap}.single #coffee{font-size:12px;padding:5px 8px}@media(max-width:530px){.single header strong{display:none}.single header .push{min-width:0}}footer{background:#191c19;border-color:#44483d}
 @media(max-width:1050px){body:not(.single) #clock{display:none}body:not(.single) header{gap:7px}aside{width:113px}}
+
+/* Keep the active layer visible as the user moves through the rail. */
+#layers {position:relative;isolation:isolate;}
+#layers::before {
+ content:"";position:absolute;inset-inline:0;top:0;z-index:-1;pointer-events:none;
+ height:var(--highlight-height,0);transform:translateY(var(--highlight-y,0));opacity:0;
+ background:#36332c;border-inline-start:3px solid #dda66e;border-radius:7px;
+ transition:transform 185ms cubic-bezier(.2,.8,.3,1),height 185ms,opacity 130ms;
+}
+#layers.has-selection::before {opacity:1;}
+#layers button {border-radius:7px;transition:background-color 130ms,color 130ms;}
+#layers button:not(.on):hover {background:#282b27;}
+#layers .on {background:transparent;border-color:transparent;}
+.panel {border-radius:8px;border-color:#393c36;}
+.panelhead {background:#292d28;border-bottom-color:#373b34;}
+.row {border-bottom-color:#31352f;transition:background-color 115ms;}
+button:active:not(:disabled) {filter:brightness(1.08);}
+.divider {position:relative;}
+.divider::after {content:"";position:absolute;top:calc(50% - 17px);left:calc(50% - 1px);width:2px;height:34px;border-radius:3px;background:#66685d;transition:background-color 120ms;}
+.right .divider::after {top:calc(50% - 1px);left:calc(50% - 17px);width:34px;height:2px;}
+.divider:is(:hover,:focus-visible,.dragging) {background:#383831;}
+.divider:is(:hover,:focus-visible,.dragging)::after {background:#dbac78;}
+@media (prefers-reduced-motion: reduce) {
+ #layers::before,#layers button,.row,.divider::after {transition:none;}
+}
+body:not(.single) header {background:#222521;border-bottom:1px solid #383d35;}
+body:not(.single) aside {border-inline-end:0;background:#191c19;overflow-y:auto;}
+body:not(.single) #workspace {padding:8px;gap:0;}
+body:not(.single) .panel {background:#202420;border-color:transparent;box-shadow:0 2px 8px #070a082b;}
+body:not(.single) .panelhead {cursor:grab;touch-action:none;user-select:none;background:#262a25;border-bottom:0;min-height:38px;}
+body:not(.single) .panelhead::before {content:"";width:7px;height:12px;background:radial-gradient(circle,#878c80 1px,transparent 1.4px) 0 0/4px 4px;opacity:.62;}
+body:not(.single) .panelhead i {display:none;}
+body:not(.single) .panelhead:focus-visible {outline:2px solid var(--accent);outline-offset:-2px;}
+body:not(.single) .panel.moving .panelhead {cursor:grabbing;background:#35392f;}
+body:not(.single) .panel.drop-target {outline:2px solid #d6b285;outline-offset:-2px;}
+body:not(.single) .filterline,body:not(.single) .searchline {border-bottom:0;background:#202420;}
+body:not(.single) .row {border-bottom:0;border-radius:6px;width:calc(100% - 8px);margin:2px 4px;}
+.divider {touch-action:none;user-select:none;}

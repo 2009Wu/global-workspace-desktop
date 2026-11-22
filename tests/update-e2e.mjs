@@ -53,6 +53,28 @@ try{
  pass('21 language choices; English, Arabic RTL, Japanese and both Chinese interfaces switch immediately');
  for(const id of ['air','sea','money','cyber','disaster','politics','sat','conflict']){await a.click('[data-layer="'+id+'"]');await until(()=>a.ev('document.querySelectorAll("#rows .row").length>0'),45000);assert.equal(await a.ev('document.querySelector("#layerSelect").value'),id);}
  await until(()=>a.ev('loading.size===0 && cache.transits?.records[0]?.days?.length>0'),65000);
+ assert.ok(await a.ev("parseInt(document.querySelector('#layers').style.getPropertyValue('--highlight-y'))===document.querySelector('#layers .on').offsetTop"));
+ await a.ev("window.firstRow=document.querySelector('#rows .row');firstRow.focus();firstRow.click();true");
+ await until(()=>a.ev("selected.id===firstRow.dataset.id"));
+ assert.ok(await a.ev("firstRow===document.querySelector('#rows .row') && document.activeElement===firstRow"));
+ await a.call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+ assert.ok(await a.ev("reduceMotion.matches && (reveal(document.querySelector('#briefBody')), !document.querySelector('#briefBody').getAnimations().length)"));
+ await a.call('Emulation.setEmulatedMedia',{features:[]});
+ const divider=await a.ev("(()=>{const b=document.querySelector('#splitX').getBoundingClientRect();return {x:b.x+b.width/2,y:b.y+b.height/2,size:sizeX};})()");
+ await a.call('Input.dispatchMouseEvent',{type:'mousePressed',x:divider.x,y:divider.y,button:'left',buttons:1,clickCount:1});
+ await a.call('Input.dispatchMouseEvent',{type:'mouseMoved',x:divider.x-65,y:divider.y,button:'left',buttons:1});
+ await a.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:divider.x-65,y:divider.y,button:'left',clickCount:1});
+ await until(()=>a.ev("sizeX<"+divider.size+" && readLocal('desk:session',{}).sizeX===sizeX && !document.querySelector('#splitX').classList.contains('dragging')"));
+ const headerPoint=id=>a.ev("(()=>{const r=document.querySelector('#"+id+" .panelhead').getBoundingClientRect();return {x:r.x+60,y:r.y+15};})()");
+ const start=await headerPoint('mapPane'),end=await headerPoint('listPane');
+ await a.call('Input.dispatchMouseEvent',{type:'mousePressed',...start,button:'left',buttons:1,clickCount:1});
+ await a.call('Input.dispatchMouseEvent',{type:'mouseMoved',...end,button:'left',buttons:1});
+ await a.call('Input.dispatchMouseEvent',{type:'mouseReleased',...end,button:'left',clickCount:1});
+ await until(()=>a.ev("paneOrder()[0]==='listPane' && readLocal('desk:paneOrder',[])[1]==='mapPane'"));
+ await a.call('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowLeft',code:'ArrowLeft',modifiers:1,windowsVirtualKeyCode:37});
+ await a.call('Input.dispatchKeyEvent',{type:'keyUp',key:'ArrowLeft',code:'ArrowLeft',modifiers:1,windowsVirtualKeyCode:37});
+ assert.equal(await a.ev("paneOrder()[0]"),'mapPane');
+ pass('list focus, layer highlight, reduced motion, persisted splitter drag, pane swapping and keyboard placement');
  assert.ok(await a.ev('cache.unpeace?.records.length>0 && cache.crisis?.records.length>0'));
  const dialects=await a.ev('Promise.all(["pcm","arz"].map(code=>rpc("translate",code,"The city has opened a new hospital.")))');
  assert.ok(dialects[0]&&dialects[0]!=="The city has opened a new hospital." && /\p{Script=Arabic}/u.test(dialects[1]));

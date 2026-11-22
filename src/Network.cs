@@ -9,8 +9,9 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
 internal static class Net {
-    internal static readonly HttpClient Http=new HttpClient{Timeout=TimeSpan.FromSeconds(40)};
-    static readonly HttpClient NoRedirect=new HttpClient(new HttpClientHandler{AllowAutoRedirect=false}){Timeout=TimeSpan.FromSeconds(40)};
+    const DecompressionMethods Encodings=DecompressionMethods.GZip|DecompressionMethods.Deflate;
+    internal static readonly HttpClient Http=new HttpClient(new HttpClientHandler{AutomaticDecompression=Encodings}){Timeout=TimeSpan.FromSeconds(40)};
+    static readonly HttpClient NoRedirect=new HttpClient(new HttpClientHandler{AllowAutoRedirect=false,AutomaticDecompression=Encodings}){Timeout=TimeSpan.FromSeconds(40)};
     static Net(){NoRedirect.DefaultRequestHeaders.UserAgent.ParseAdd("GlobalWorkspace/"+Build.Version);Http.MaxResponseContentBufferSize=16000000;Http.DefaultRequestHeaders.UserAgent.ParseAdd("GlobalWorkspace/"+Build.Version);}
     public static async Task<string> Get(string url,string token=null,bool fr=false,bool ship=false,bool strict=false){
         using(var req=new HttpRequestMessage(HttpMethod.Get,url)){if(token!=null)req.Headers.TryAddWithoutValidation(ship?"x-api-key":"Authorization",ship?token:"Bearer "+token);if(url.StartsWith("https://meri.digitraffic.fi/"))req.Headers.TryAddWithoutValidation("Digitraffic-User","GlobalWorkspace-Desktop");if(fr)req.Headers.TryAddWithoutValidation("Accept-Version","v1");
