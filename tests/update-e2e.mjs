@@ -71,6 +71,8 @@ try{
  await choose('zh-Hans');
  await a.ev('document.getElementById("query").value="";document.getElementById("query").dispatchEvent(new Event("input"));frameRegion();true');
  await until(()=>a.ev('Array.from(document.querySelectorAll("#rows .rowtitle")).slice(0,5).every(e=>e.dataset.translated==="true")'));
+ assert.ok(await a.ev('document.querySelector("#layers").getBoundingClientRect().bottom<=document.querySelector("#mapPane").getBoundingClientRect().top && document.querySelector("#map").classList.contains("hud-atlas")'));
+ await a.ev('map.closePopup();true');
  await a.call('Page.captureScreenshot',{format:'png'}).then(r=>fs.writeFileSync(path.join(root,'conflict-desk.png'),Buffer.from(r.data,'base64')));
  await a.click('[data-layer="politics"]');
  await a.ev(`window.caseRecord=cache.bbc?.records.find(e=>e.title.includes('Gulf of Finland'))||anchorNews(record('bbc','reader-test','Russia-bound ship towed away after it was attacked in Gulf of Finland','2026-11-22T17:18:00Z',null,0,'The report concerns the Gulf of Finland.','https://www.bbc.co.uk/news/articles/cj752ddve27ko'));
@@ -82,6 +84,14 @@ try{
  assert.ok(await detail.ev('typeof L==="undefined" && !map && performance.getEntriesByType("resource").every(x=>!x.name.endsWith("/world.js"))'));
  await until(()=>detail.ev('standalone.article?.byline && standalone.article.excerpts.length && document.querySelector("#briefBody h3[data-translated]")'));
  await until(()=>detail.ev('document.querySelectorAll("#briefBody p[data-translated]").length>=2'));
+ assert.ok(await detail.ev('document.querySelector(".news-address").title===standalone.links[0].url && !!document.querySelector(".news-photo img")'));
+ await detail.click('.news-tab:nth-child(2)');
+ assert.equal(await detail.ev('document.activeElement.id'),'news-sources');
+ await detail.click('.news-tab:nth-child(3)');
+ assert.equal(await detail.ev('document.activeElement.id'),'news-media');
+ await detail.click('.news-tab:first-child');
+ assert.equal(await detail.ev('document.activeElement.tagName'),'H3');
+ await detail.ev('document.querySelector("#briefBody").scrollTop=0;true');
  await detail.call('Page.captureScreenshot',{format:'png'}).then(r=>fs.writeFileSync(path.join(root,'source-detail.png'),Buffer.from(r.data,'base64')));
  await choose('zh-Hant');await until(()=>detail.ev('document.documentElement.lang==="zh-Hant" && document.querySelector("#briefBody h3[data-translated]")'));
  await a.ev('delete cache.readerCase;document.querySelector("#query").value="";document.querySelector("#query").dispatchEvent(new Event("input"));true');await a.click('[data-layer="all"]');

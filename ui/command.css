@@ -1,36 +1,110 @@
-#conflictTopics{display:flex;gap:6px;padding:5px 9px;border-block-end:1px solid var(--rim);flex-wrap:wrap}
-#conflictTopics button{font-size:12px;padding:3px 8px}
-.transit-history{width:100%;border-collapse:collapse;font:13px/1.5 Consolas,"Microsoft YaHei UI",sans-serif;font-variant-numeric:tabular-nums}
-.transit-history td,.transit-history th{padding:4px 8px;border-bottom:1px solid #41463d;text-align:end}.transit-history tr>:first-child{text-align:start}.transit-history th{color:var(--quiet)}
-/* Compact operations desk, with separate type scales for controls and dispatches. */
-:root{--bg:#161817;--panel:#202321;--bar:#292c29;--rim:#444842;--quiet:#acb0a7;--ink:#ecece3;--accent:#eeb16b;font-family:"Segoe UI","Microsoft YaHei UI",sans-serif}
-body{background:#141615}
-header{height:55px;background:linear-gradient(110deg,#30322d,#202320 58%);border-bottom:2px solid #a95f44;gap:10px}
-header strong{font-size:18px;letter-spacing:.045em}
-.logo{width:32px;height:32px;border-radius:2px;background:#b45442;color:#fff6e6;font-size:25px}
-button,select,input{border-radius:2px;background:#252823;border-color:#464943}
-header button,header select{font-size:13px}
-#coffee{background:#e9b979;color:#252119;border-color:#e9b979;font-weight:650;white-space:nowrap;padding:6px 12px}
-#coffee::before{content:"☕︎";padding-inline-end:6px}#coffee:hover{background:#fac994}
-#workspace{padding:7px;grid-template-columns:minmax(300px,var(--x)) 6px minmax(240px,1fr)}
-aside{background:#1a1c1a;width:126px;padding:13px 6px;border-color:#45473f}
-nav button{border-radius:0;margin:0;border-inline-start:3px solid transparent;padding:8px 7px}
-nav .on,#savedTab.on{background:#38342b;color:#f3c38a;border-color:transparent;border-inline-start:3px solid #dc9b5b}
-nav b{color:#b9b8aa}.panel{border-radius:2px;border-color:#454840}
-.panelhead{background:linear-gradient(100deg,#32362e,#262925);min-height:36px;padding:6px 11px}
-.panelhead i{border-radius:0;width:3px;height:16px;background:#cf7153}.panelhead h2{font-weight:650;letter-spacing:.045em;font-size:14px}
-.filterline,.searchline{background:#20231f;padding:6px 9px}
-.row{border-bottom:1px solid #393c36;padding:9px 12px}.row:hover{background:#2e322b}.row.selected{background:#35352c;box-shadow:inset 3px 0 #eeb16b}
-.rowtitle{font-size:14px;font-weight:550;line-height:1.44}.rowmeta,.stamp,.sub,.version{color:#b3b6ad}
-.rowmeta{font:11px/1.45 Consolas,"Microsoft YaHei UI",sans-serif}
-.rowtext [data-fallback]::after,.info [data-fallback]::after{content:" · " attr(data-fallback);font:10px "Segoe UI",sans-serif;color:#c0aa89}
-.info{max-width:80ch;margin:0 auto}.info h3{font-size:21px;line-height:1.36;letter-spacing:.008em}
-.dossier .info h3[data-translated]::after{content:attr(data-translation-label);font:11px "Segoe UI",sans-serif;color:var(--quiet);border:1px solid var(--rim);padding:2px 4px;margin-inline-start:6px;vertical-align:middle;white-space:nowrap}
-.info h4{font:600 12px/1.4 "Segoe UI","Microsoft YaHei UI",sans-serif;letter-spacing:.075em;color:#ded2b9;margin:17px 0 6px}
-.info p{line-height:1.68;color:#e1e3d9}.pill{border-radius:2px;font-size:11px}
-.event-location{background:#272b26;border-color:#bb9166;padding:8px 11px;margin:13px 0}
-.sourcebutton{background:#282b26;text-align:start}.original-story{border-block:1px solid var(--rim);margin:12px 0;padding:7px 0}.original-story summary{cursor:pointer;font-size:12px;color:#c9c6ba}.original-story strong{display:block;margin-top:9px}
-.media{width:auto;height:auto;max-width:100%;border:1px solid var(--rim)}.dossier .info h3{font-size:clamp(21px,4.2vw,29px);margin:.35em 0}
-.dossier .scroll{padding:clamp(13px,3vw,24px)}.dossier .panelhead{border-bottom:2px solid #9a634e}
-.single header{gap:7px;min-height:43px;height:auto;padding:6px 10px;flex-wrap:wrap}.single #coffee{font-size:12px;padding:5px 8px}@media(max-width:530px){.single header strong{display:none}.single header .push{min-width:0}}footer{background:#191c19;border-color:#44483d}
-@media(max-width:1050px){body:not(.single) #clock{display:none}body:not(.single) header{gap:7px}aside{width:113px}}
+/* The two HUD rails share a brushed steel housing. Dark readouts sit above
+   the olive lens keys. Drawer titles and the news reader use separate frames. */
+:root {
+  --bg: #101015; --panel: #17171e; --bar: #30323d; --rim: #51515b;
+  --quiet: #bab9c1; --ink: #f0eef1; --accent: #e8c36e;
+  --metal: linear-gradient(105deg, transparent, #ffffff0f 35%, transparent 68%), repeating-linear-gradient(0deg,#ffffff04 0 1px,transparent 1px 3px),linear-gradient(#41434f,#292b36 45%,#1d1e27 90%,#101116);
+  --bevel: inset 1px 1px #686974, inset -1px -1px #09090e, 0 1px 2px #050509;
+  font-family: "Segoe UI","Microsoft YaHei UI",sans-serif;
+}
+body { background:#101016; }
+button,select,input {border-radius:2px;background:#25252f;border-color:#55555f;}
+button:focus-visible,select:focus-visible,input:focus-visible {outline-offset:-2px;}
+header,aside,.panelhead,footer,#legend {background:var(--metal);}
+header {height:43px;gap:8px;padding:3px 9px;border-bottom:1px solid #09090e;box-shadow:inset 0 1px #777680;}
+.identity {height:36px;display:flex;align-items:center;gap:9px;padding-inline-end:13px;}
+.identity strong {font-size:16px;color:#ecebf1;text-shadow:0 1px 2px black;letter-spacing:.05em;}
+.logo {position:relative;width:50px;height:32px;border:2px solid #535362;border-radius:2px;box-shadow:0 0 0 1px #09090c,inset 0 0 7px #080710;background:radial-gradient(ellipse at 35% 18%,#575184,#212339 65%,#15151d);overflow:hidden;}
+.logo i {width:22px;height:22px;border:1px solid #d7d2df;border-radius:50%;position:relative;background:linear-gradient(transparent 44%,#b4aec6 46% 50%,transparent 53%);}
+.logo i::before {content:"";position:absolute;inset:0 4px;border:1px solid #d7d2df;border-radius:50%;transform:rotate(18deg);}
+.version,#clock {padding:3px 9px;color:#e2e1e1;background:#090a0d;border:1px solid #53535e;box-shadow:inset 1px 2px 3px #000;font:600 12px/1.3 Consolas,monospace;}
+header button,header select,.library button,.panelhead button {box-shadow:var(--bevel);border:1px solid #111118;background:var(--metal);font-size:13px;}
+header select {padding-block:4px;}
+#coffee {background:linear-gradient(#6b6241,#3f3926 52%,#272418);color:#fff0b7;font-weight:700;white-space:nowrap;border-color:#a8965f;}
+#coffee::before {content:"☕︎";margin-inline-end:5px;}
+#coffee:hover {background:#67582f;}
+aside {height:auto;width:100%;min-height:39px;display:flex;flex-direction:row;align-items:stretch;gap:8px;padding:3px 8px 4px;border:0;border-bottom:2px solid #09090e;box-shadow:inset 0 1px #555661;}
+#layers {display:flex;gap:3px;flex-wrap:wrap;align-items:center;}
+#layers button {border:1px solid #09090c;box-shadow:var(--bevel);border-radius:2px;padding:2px 7px 2px 3px;gap:5px;color:#d8d7ce;min-height:29px;
+ background:radial-gradient(ellipse at 42% 33%,#56583a,#363824 50%,#1e201a 89%);font-size:12px;}
+#layers b {display:grid;place-items:center;min-width:23px;height:22px;color:#dedcc1;font:700 18px/1 "Segoe UI Symbol",sans-serif;text-shadow:0 1px #070806,1px 2px 2px #141509;}
+#layers button:hover {filter:brightness(1.25);}
+#layers .on,#savedTab.on {background:radial-gradient(ellipse at 35% 35%,#65643b,#34321e);border-color:#d8be73;color:#fff5ca;box-shadow:inset 0 0 0 1px #19180f,0 0 0 1px #15151b;}
+.library {display:flex;gap:3px;align-items:center;flex-shrink:0;}
+.library button {padding:4px 7px;white-space:nowrap;}
+#workspace {padding:3px;grid-template-columns:minmax(280px,var(--x)) 5px minmax(235px,1fr);}
+.panel {border-radius:2px;border:2px solid #34333e;box-shadow:0 0 0 1px #08080d,inset 0 0 0 1px #595865;}
+.panelhead {min-height:31px;padding:3px 7px;border:1px solid #09090f;box-shadow:inset 0 1px #61616d;gap:7px;}
+.panelhead i {width:8px;height:8px;border:1px solid #a29ca4;border-radius:1px;background:linear-gradient(135deg,#b7a582,#5d5245 50%,#36343b);transform:rotate(45deg);}
+.panelhead h2 {font-size:13px;font-weight:700;text-shadow:0 2px 2px #000;}
+.panelhead .pop,.panelhead .compact {background:var(--metal);color:#dcceb0;border-color:#18171c;min-width:24px;font:16px/1.2 "Segoe UI Symbol",sans-serif;}
+#mapScope,#counter {color:#e4c577;font-size:12px;}
+.filterline,.searchline,#conflictTopics {padding:4px 7px;background:#202029;border-bottom:1px solid #050509;}
+.filterline select,.searchline input,.searchline select,.filterline button,#conflictTopics button {font-size:12px;padding:4px 7px;}
+#conflictTopics {display:flex;gap:6px;flex-wrap:wrap;}
+#map {background:#171321;}
+#map.hud-atlas .atlas-relief {filter:grayscale(.82) sepia(.22) hue-rotate(234deg) brightness(.81);}
+.country-label {font-weight:700;color:#eae5ed;letter-spacing:.07em;text-shadow:0 1px 2px #16101d,1px 0 2px #201a24,-1px 0 2px #261f2b;}
+#legend {padding:4px 9px;border-top:1px solid #08080c;gap:10px;}
+#mapStats,.leaflet-control-scale-line {background:#15131ddb;color:#e2dce7;border-color:#77717b;}
+#rows {background:linear-gradient(110deg,#1c1c25,#121219);}
+.row {padding:7px 9px;border-bottom-color:#36353d;align-items:center;}
+.row:hover {background:#292733;}
+.row.selected {background:linear-gradient(105deg,#34303c,#221f2b);box-shadow:inset 3px 0 #ad599a;}
+.sym {display:grid;place-items:center;min-width:28px;height:27px;background:radial-gradient(ellipse at top,#38343b,#141419);border:1px solid #4f4953;box-shadow:inset 0 0 0 1px #151418;}
+.rowtitle {font-size:13px;font-weight:600;line-height:1.43;}
+.rowmeta,.stamp {font:11px/1.5 Consolas,"Microsoft YaHei UI",sans-serif;color:#b6b2be;}
+.info {max-width:84ch;margin:0 auto;}
+.info h3 {font-size:18px;}
+.info h4 {font-size:13px;color:#e3c06f;margin:14px 0 5px;}
+.info p {font-size:14px;line-height:1.65;}
+.pill {border-radius:1px;font-size:11px;}
+.event-location {padding:6px 9px;border-color:#796880;background:#22212a;}
+.action {background:linear-gradient(#5d6040,#333722);color:#f6f1d8;border-color:#8a896a;}
+.sourcebutton {text-align:start;}
+.original-story {margin:12px 0;}.original-story summary {cursor:pointer;}.original-story strong {display:block;}
+.transit-history {width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums;}
+.transit-history td,.transit-history th {padding:3px 6px;border-bottom:1px solid var(--rim);text-align:end;}
+.transit-history tr>:first-child {text-align:start;}
+[data-fallback]::after {content:" · " attr(data-fallback);font-size:10px;color:var(--quiet);}
+footer {height:22px;border-color:#131218;}
+dialog,#toast,#notice {border-radius:2px;background:#20202a;border-color:#625567;}
+.single header {height:auto;min-height:38px;padding:3px 7px;gap:6px;flex-wrap:wrap;}
+.single .identity {height:29px;padding:0;gap:6px;}.single .logo {width:36px;height:26px;}
+.single #workspace {padding:3px;}
+.dossier #briefBody {padding:8px 9px 13px;background:linear-gradient(135deg,#282735,#14141a);}
+.news-frame {max-width:74ch;margin:0 auto;}
+.news-navigation {position:sticky;top:0;z-index:2;background:#25232d;}
+.news-frame [tabindex] {scroll-margin-top:62px;}
+.news-tabs {display:flex;align-items:end;gap:1px;padding-inline:8px;min-height:25px;}
+.news-tab {padding:4px 11px 3px;min-width:0;max-width:48%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;clip-path:polygon(6px 0,calc(100% - 6px) 0,100% 100%,0 100%);background:linear-gradient(#514454,#302a36);border:0;border-top:2px solid #95658c;color:#f1e5f0;font-size:11px;font-weight:600;}
+.news-tab[aria-current],.news-tab:hover {background:linear-gradient(#75556e,#4c3e50);border-top-color:#d08ec1;}
+.news-address {display:block;width:100%;direction:ltr;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 12px;border:1px solid #97758d;border-bottom:2px solid #785070;background:linear-gradient(#514455,#382e3c);color:#f4e7f6;font:12px/1.5 Consolas,monospace;}
+.news-frame .info {color-scheme:light;--quiet:#594a58;--rim:#b6abb5;--ink:#222028;--accent:#623963;background:repeating-linear-gradient(0deg,#66636c05 0 1px,transparent 1px 4px),linear-gradient(100deg,#e2dce4,#f3eff2 14%,#ebe7eb 90%,#ded5e1);color:var(--ink);border:2px solid #9c739a;border-top:0;box-shadow:inset 0 0 12px #72587844;padding:14px clamp(12px,4vw,25px);max-width:none;overflow-wrap:anywhere;}
+.news-frame .pill {color:#302831!important;border-color:#a094a1;border-inline-start:5px solid var(--severity);font-weight:600;padding:1px 6px;}
+.news-frame .info h3 {font:bold clamp(20px,4vw,28px)/1.32 "Segoe UI","Microsoft YaHei UI",sans-serif;text-align:center;margin:7px 0;}
+.news-frame .stamp {color:#554c58;}
+.news-frame .info h3+.stamp {text-align:center;border-bottom:1px solid #b9acba;padding-bottom:6px;}
+.news-photo {width:82%;margin:10px auto 12px;background:#2e2932;padding:3px;box-shadow:0 1px 2px #4c414d55;}
+.news-photo img {width:100%;height:auto;max-height:175px;object-fit:contain;margin:0;display:block;}
+.news-frame h4 {color:#573d58;border-bottom:1px solid #c1b6c1;padding-bottom:3px;}
+.news-frame .event-location {background:#e1dce2;border-color:#886783;}
+.news-frame small {color:#554b56;}
+.news-frame button:not(.news-tab,.news-address) {border-color:#b5aab4;background:#e4dee4;color:#503251;}
+.news-frame .info p {font-size:14px;color:#28252b;}
+@media(max-width:1050px){#layers button{gap:2px;padding-inline:3px;}.library button{font-size:12px;}#clock{font-size:11px;}}
+@media(max-width:830px){aside{flex-wrap:wrap;gap:3px;}#layers{flex:1 1 100%;}.library{margin-inline-start:auto;}header .version{display:none;}}
+@media(max-width:560px){.single .identity strong{display:none;}.single header{gap:4px;}.single header button,.single header select{font-size:12px;}}
+.hud-readouts {display:flex;gap:3px;min-width:0;}
+.hud-readouts span {display:flex;gap:6px;align-items:center;background:linear-gradient(#181720,#09090d);border:1px solid #54535c;padding:2px 8px;color:#e5e1e6;box-shadow:inset 1px 1px 3px #000;min-width:0;}
+.hud-readouts b {color:#b597b7;font-size:15px;}.hud-readouts output {text-overflow:ellipsis;overflow:hidden;white-space:nowrap;font-size:12px;font-weight:600;}
+.single .hud-readouts {display:none;}@media(max-width:830px){.hud-readouts{display:none;}}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip {background:linear-gradient(145deg,#28212c,#19171d);color:#f2edf4;border:1px solid #a15c93;border-radius:1px;}
+.leaflet-popup-content-wrapper {box-shadow:inset 0 0 0 1px #3e3040,0 4px 14px #08050b80;}
+.location-card>strong {color:#f2d080;}
+.location-card small {color:#c6bdc8;}
+.leaflet-control-zoom a {background:var(--metal)!important;color:#e9e3cf!important;border-color:#5b5661!important;}
+.leaflet-bar {border-radius:1px!important;}
+.pin {background:#201e25ef;border-radius:2px;box-shadow:0 1px 2px #0c0811;}
+.cluster {border-radius:3px;}
+.leaflet-tooltip {background:#221d25;border-color:#925987;color:#eee6ee;}
