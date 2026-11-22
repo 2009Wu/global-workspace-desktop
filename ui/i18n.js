@@ -25,5 +25,5 @@ te:'ప్రపంచ సమాచార వేదిక|అవలోకనం|
 };
 const dictionaries=Object.fromEntries(Object.entries(copy).map(([lang,row])=>{const cols=row.split('|');if(cols.length!==keys.length)throw Error(lang+' translation column count '+cols.length);return [lang,Object.fromEntries(keys.map((key,i)=>[key,cols[i]]))]}));
 let lang='zh-Hans';
-function t(key){return dictionaries[lang]?.[key]??key;}
+function t(key){if(key==='conflict')return rw(0);return dictionaries[lang]?.[key]??key;}
 

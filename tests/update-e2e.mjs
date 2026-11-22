@@ -51,8 +51,41 @@ try{
  assert.equal(await a.ev('document.querySelector("#language").options.length'),21);
  for(const lc of ['en','ar','ja','zh-Hans','zh-Hant']){await a.ev('document.querySelector("#language").value='+JSON.stringify(lc)+';document.querySelector("#language").dispatchEvent(new Event("change"))');await until(()=>a.ev('document.documentElement.lang==='+JSON.stringify(lc)));assert.equal(await a.ev('document.documentElement.dir'),lc==='ar'?'rtl':'ltr');}
  pass('21 language choices; English, Arabic RTL, Japanese and both Chinese interfaces switch immediately');
- for(const id of ['air','sea','money','cyber','disaster','politics','sat']){await a.click('[data-layer="'+id+'"]');await until(()=>a.ev('document.querySelectorAll("#rows .row").length>0'),45000);assert.equal(await a.ev('document.querySelector("#layerSelect").value'),id);}
- await a.click('[data-layer="all"]');await until(()=>a.ev('loading.size===0'),60000);await sleep(350);await a.click('#briefBody .actions button:first-child');const detail=await connect('detail');assert.ok(await detail.ev('document.querySelectorAll(".sourcebutton").length'));pass('seven populated source layers, saved event, non-modal detail window and persisted language');
+ for(const id of ['air','sea','money','cyber','disaster','politics','sat','conflict']){await a.click('[data-layer="'+id+'"]');await until(()=>a.ev('document.querySelectorAll("#rows .row").length>0'),45000);assert.equal(await a.ev('document.querySelector("#layerSelect").value'),id);}
+ await until(()=>a.ev('loading.size===0 && cache.transits?.records[0]?.days?.length>0'),65000);
+ assert.ok(await a.ev('cache.unpeace?.records.length>0 && cache.crisis?.records.length>0'));
+ const dialects=await a.ev('Promise.all(["pcm","arz"].map(code=>rpc("translate",code,"The city has opened a new hospital.")))');
+ assert.ok(dialects[0]&&dialects[0]!=="The city has opened a new hospital." && /\p{Script=Arabic}/u.test(dialects[1]));
+ assert.ok(await a.ev('anchorNews({layer:"politics",title:"Humanitarian deliveries resume in Pokrovsk",summary:""}).anchor==="city" && explicitPlace("City services resume in 红军城").iso==="UKR"'));
+ assert.ok(await a.ev('anchorNews({layer:"politics",title:"Russia announces talks",summary:""}).location==null'));
+ await a.click('#hormuzTopic');
+ assert.ok(await a.ev('selected.feed==="transits" && !!document.querySelector(".transit-history tbody tr")'));
+ const choose=async lc=>{await a.ev('document.getElementById("language").value='+JSON.stringify(lc)+';document.getElementById("language").dispatchEvent(new Event("change"));true');await until(()=>a.ev('document.documentElement.lang==='+JSON.stringify(lc)));};
+ await choose('zh-Hans');
+ await until(()=>a.ev('document.querySelector("#briefBody h3[data-translated]") && /[\\u4e00-\\u9fff]/.test(document.querySelector("#briefBody h3").textContent)'));
+ assert.ok(await a.ev('!document.querySelector("#coffee").hidden && document.querySelector("#coffee").textContent==="帮小王买杯咖啡"'));
+ await a.ev('window.oldBridge=rpc;window.coffeeLink="";rpc=(cmd,...args)=>{if(cmd==="external"){window.coffeeLink=args[0];return Promise.resolve(true);}return oldBridge(cmd,...args);};true');
+ try{await a.click('#coffee');assert.equal(await a.ev('window.coffeeLink'),'https://ko-fi.com/little_wang');}finally{await a.ev('rpc=oldBridge;true');}
+ await choose('en');
+ assert.ok(await a.ev('document.querySelector("#briefBody h3").textContent.includes("commercial vessel transits")'));
+ await choose('zh-Hans');
+ await a.ev('document.getElementById("query").value="";document.getElementById("query").dispatchEvent(new Event("input"));frameRegion();true');
+ await until(()=>a.ev('Array.from(document.querySelectorAll("#rows .rowtitle")).slice(0,5).every(e=>e.dataset.translated==="true")'));
+ await a.call('Page.captureScreenshot',{format:'png'}).then(r=>fs.writeFileSync(path.join(root,'conflict-desk.png'),Buffer.from(r.data,'base64')));
+ await a.click('[data-layer="politics"]');
+ await a.ev(`window.caseRecord=cache.bbc?.records.find(e=>e.title.includes('Gulf of Finland'))||anchorNews(record('bbc','reader-test','Russia-bound ship towed away after it was attacked in Gulf of Finland','2026-11-22T17:18:00Z',null,0,'The report concerns the Gulf of Finland.','https://www.bbc.co.uk/news/articles/cj752ddve27ko'));
+ cache.readerCase={records:[caseRecord]};document.querySelector('#query').value='Gulf of Finland';document.querySelector('#query').dispatchEvent(new Event('input'));true`);
+ await a.click('#rows .row');assert.equal(await a.ev('selected.anchor'),'water');
+ await until(()=>a.ev('!!document.querySelector("#rows .rowtitle[data-translated]")'));
+ const beforeOpen=Date.now();await a.click('#briefBody .actions button:first-child');const detail=await connect('detail');
+ await until(()=>detail.ev('!!document.querySelector(".sourcebutton")'));console.log('DETAIL_READY_MS '+(Date.now()-beforeOpen));
+ assert.ok(await detail.ev('typeof L==="undefined" && !map && performance.getEntriesByType("resource").every(x=>!x.name.endsWith("/world.js"))'));
+ await until(()=>detail.ev('standalone.article?.byline && standalone.article.excerpts.length && document.querySelector("#briefBody h3[data-translated]")'));
+ await until(()=>detail.ev('document.querySelectorAll("#briefBody p[data-translated]").length>=2'));
+ await detail.call('Page.captureScreenshot',{format:'png'}).then(r=>fs.writeFileSync(path.join(root,'source-detail.png'),Buffer.from(r.data,'base64')));
+ await choose('zh-Hant');await until(()=>detail.ev('document.documentElement.lang==="zh-Hant" && document.querySelector("#briefBody h3[data-translated]")'));
+ await a.ev('delete cache.readerCase;document.querySelector("#query").value="";document.querySelector("#query").dispatchEvent(new Event("input"));true');await a.click('[data-layer="all"]');
+ pass('eight source layers, city and water references, daily aggregate transits, translated live titles, language sync, visible Ko-fi and lightweight enriched detail');
  await a.call('Page.captureScreenshot',{format:'png'}).then(r=>fs.writeFileSync(path.join(root,'workspace.png'),Buffer.from(r.data,'base64')));
  const original=linkPath()[0],renamed='My custom entry.lnk';fs.renameSync(path.join(home,'test-desktop',original),path.join(home,'test-desktop',renamed));
  mode='same';await check(a);assert.ok(await a.ev('!state.next'));await closeDialog(a);mode='pre';await check(a);assert.ok(await a.ev('!state.next'));await closeDialog(a);pass('same release and prerelease stay quiet');

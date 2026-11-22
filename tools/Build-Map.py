@@ -111,6 +111,8 @@ def build_countries(files):
         f = dict(type="Feature", bbox=list(g.bounds), geometry=geometry(g.simplify(.012)),
                  properties=dict(iso=code, parent="CHN"))
         base.append(f)
+    mini = {"features":[{"properties":f["properties"]} for f in base]}
+    (OUT / "countries.js").write_text("const world="+compact(mini)+";\n",encoding="utf-8")
     (ROOT / "world.js").write_text("const world = "+compact(dict(type="FeatureCollection",features=base))+";\n", encoding="utf-8")
 
 

@@ -13,7 +13,25 @@ using Microsoft.Web.WebView2.WinForms;
 internal class Desk : Form {
  static CoreWebView2Environment env;static readonly List<Desk> windows=new List<Desk>();static Updates update;
  static string token;static bool quitting;static int tasks;
- readonly WebView2 browser=new WebView2();readonly string view,data;
+ readonly WebView2 browser=new WebView2();readonly string view;string data;
+ static Desk standby;static bool warming;bool parked,readerReady;Task browserSetup;
+ Task EnsureBrowser(){return browserSetup??(browserSetup=InitBrowser());}
+ static async void WarmReader(){
+   if(warming||standby!=null||quitting)return;
+   warming=true;
+   try{await Task.Delay(800);if(standby!=null||quitting||!windows.Any(w=>w.view=="main"&&!w.IsDisposed))return;
+     var reader=new Desk("detail","");reader.parked=true;standby=reader;
+     var formHandle=reader.Handle;var webHandle=reader.browser.Handle;await reader.EnsureBrowser();
+   }catch(Exception ex){C.Log("reader preparation: "+ex.Message);}
+   finally{warming=false;}
+ }
+ static void OpenReader(string story){
+   var reader=standby;standby=null;
+   if(reader==null||reader.IsDisposed)reader=new Desk("detail",story);
+   reader.parked=false;reader.data=story;reader.Show();
+   if(reader.readerReady)reader.Send("story",story);
+   WarmReader();
+ }
  const string Origin="https://workspace.local";
  static void Broadcast(string type,object value){foreach(var w in windows.ToArray())w.Send(type,value);}
  void Send(string type,object value){if(!IsDisposed && browser.CoreWebView2!=null)try{browser.CoreWebView2.PostWebMessageAsJson(C.Json.Serialize(new {type=type,value=value}));}catch(InvalidOperationException){}}
@@ -25,11 +43,11 @@ internal class Desk : Form {
    StartPosition=FormStartPosition.CenterScreen;Size=view=="main"?new Size(1360,860):view=="map"?new Size(900,640):new Size(610,690);
    string geometry=Path.Combine(C.User,"window-"+view+".json");
    try{var geo=C.Obj(File.ReadAllText(geometry));var rect=new Rectangle(Convert.ToInt32(geo["x"]),Convert.ToInt32(geo["y"]),Convert.ToInt32(geo["w"]),Convert.ToInt32(geo["h"]));if(rect.Width>=390 && rect.Height>=300 && Screen.AllScreens.Any(sc=>Rectangle.Intersect(sc.WorkingArea,rect).Width>=130 && Rectangle.Intersect(sc.WorkingArea,rect).Height>=80)){StartPosition=FormStartPosition.Manual;Bounds=rect;}}catch{}
-   FormClosing+=(s,e)=>{try{var r=WindowState==FormWindowState.Normal?Bounds:RestoreBounds;C.Atomic(geometry,C.Json.Serialize(new{x=r.X,y=r.Y,w=r.Width,h=r.Height}));}catch{}};
+   FormClosing+=(s,e)=>{if(parked)return;try{var r=WindowState==FormWindowState.Normal?Bounds:RestoreBounds;C.Atomic(geometry,C.Json.Serialize(new{x=r.X,y=r.Y,w=r.Width,h=r.Height}));}catch{}};
    MinimumSize=view=="main"?new Size(800,540):new Size(390,340);BackColor=Color.FromArgb(14,25,33);Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
    Controls.Add(new Label{Text="全球情报工作台",AutoSize=true,ForeColor=Color.White,Location=new Point(30,35),Font=new Font("Microsoft YaHei UI",16)});
    browser.Dock=DockStyle.Fill;Controls.Add(browser);browser.BringToFront();
-   FormClosed+=(s,e)=>{windows.Remove(this);if(view=="main")foreach(var w in windows.ToArray())w.Close();};Shown+=async(s,e)=>await InitBrowser();
+   FormClosed+=(s,e)=>{windows.Remove(this);if(standby==this)standby=null;if(view=="main"){quitting=true;foreach(var w in windows.ToArray())w.Close();}};Shown+=async(s,e)=>await EnsureBrowser();
  }
  async Task InitBrowser(){try{
    if(env==null){var opts=new CoreWebView2EnvironmentOptions();if(Build.Test)opts.AdditionalBrowserArguments="--remote-debugging-port="+Environment.GetEnvironmentVariable("ATLAS_TEST_PORT")+(File.Exists(Path.Combine(C.Root,"test-offline"))?" --proxy-server=http://127.0.0.1:1":"");
@@ -40,8 +58,8 @@ internal class Desk : Form {
    core.NavigationStarting+=(s,e)=>{if(!e.Uri.StartsWith(Origin+"/",StringComparison.Ordinal)){e.Cancel=true;if(e.IsUserInitiated)OpenUrl(e.Uri);}};
    core.NewWindowRequested+=(s,e)=>{e.Handled=true;if(e.IsUserInitiated)OpenUrl(e.Uri);};
    core.PermissionRequested+=(s,e)=>{e.State=CoreWebView2PermissionState.Deny;};
-   core.WebMessageReceived+=Message;core.Navigate(Origin+"/index.html?view="+view);
- }catch(Exception e){C.Log(e.Message);MessageBox.Show("界面启动失败。请检查 Microsoft Edge WebView2 Runtime。\n"+e.Message,Text);Close();}}
+   core.WebMessageReceived+=Message;core.Navigate(Origin+"/index.html?view="+view+(parked?"&warm=1":""));
+ }catch(Exception e){C.Log(e.Message);if(!parked)MessageBox.Show("界面启动失败。请检查 Microsoft Edge WebView2 Runtime。\n"+e.Message,Text);Close();}}
  async void Message(object sender,CoreWebView2WebMessageReceivedEventArgs e){
     if(!e.Source.StartsWith(Origin+"/index.html?",StringComparison.Ordinal))return;int id=0;
     try{var msg=C.Obj(e.TryGetWebMessageAsString());id=Convert.ToInt32(msg["id"]);string cmd=C.Str(msg,"cmd"),arg=C.Str(msg,"arg"),val=C.Str(msg,"val");object result=true;
@@ -49,13 +67,16 @@ internal class Desk : Form {
        case "ready":
          result=new {version=Build.Version,view=view,data=data,state=update.State(),fr24=Net.HasKey("fr24"),x=Net.HasKey("x"),github=Net.HasKey("github"),ships=Net.HasKey("ships"),repo=Build.Repo,installError=C.Read(Path.Combine(C.User,"update-error.txt"),"")};
          if(view=="main"){var unused=update.Check();}break;
-       case "healthy":if(view=="main" && token!=null && System.Text.RegularExpressions.Regex.IsMatch(token,"^[a-f0-9]{32}$"))C.Atomic(Path.Combine(C.Root,"ready-"+token),"ready");break;
+       case "readerReady":if(view=="detail"){readerReady=true;result=data;}break;
+       case "healthy":if(view=="main")WarmReader();if(view=="main" && token!=null && System.Text.RegularExpressions.Regex.IsMatch(token,"^[a-f0-9]{32}$"))C.Atomic(Path.Combine(C.Root,"ready-"+token),"ready");break;
+       case "article":result=await Net.Article(arg);break;
+       case "translate":result=await Net.Translate(arg,val);break;
        case "feed":result=await Net.Feed(arg,val);break;
        case "check":await update.Check();break;
        case "install":await update.Install();break;
        case "title":Text=arg.Substring(0,Math.Min(arg.Length,140));break;
        case "external":OpenUrl(arg);break;
-       case "window":if(new[]{"map","list","brief","detail"}.Contains(arg)){new Desk(arg,val).Show();}break;
+       case "window":if(arg=="detail")OpenReader(val);else if(new[]{"map","list","brief"}.Contains(arg))new Desk(arg,val).Show();break;
        case "key":if(quitting)throw new IOException("正在重启");Net.SetKey(arg,val);break;
        case "export":
          if(quitting)throw new IOException("正在重启");tasks++;

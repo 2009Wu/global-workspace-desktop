@@ -1,11 +1,13 @@
 const catalogs = {
+ transits:['conflict','IMF PortWatch',360],shippingnews:['conflict','Google News · Hormuz shipping',20],ukrnews:['conflict','Google News · Ukraine',20],
+ unpeace:['conflict','UN News · Peace and Security',15],crisis:['conflict','International Crisis Group',60],relief:['politics','OCHA · ReliefWeb',30],
  adsb:['air','adsb.lol · ODbL 1.0',5],baltic:['sea','Fintraffic · Digitraffic AIS',5],ships:['sea','Datalastic · AIS',10],france:['politics','France 24',10],aj:['politics','Al Jazeera',10],
  quake:['disaster','USGS',5],gdacs:['disaster','GDACS',10],bbc:['politics','BBC World',10],un:['politics','UN News',15],
  eonet:['sat','NASA EONET',30],cloud:['cyber','Google Cloud Service Health',15],kev:['cyber','CISA KEV',120],metar:['air','NOAA Aviation Weather',10],
  buoy:['sea','NOAA NDBC',15],ferry:['sea','MBTA Ferry',2],fx:['money','Frankfurter · ECB',120],
  crypto:['money','Coinbase Exchange',2],fr24:['air','Flightradar24',5],tg:['politics','Telegram',10],x:['politics','X',15]
 };
-const glyph={air:'✈',sea:'⚓︎',money:'₿',cyber:'⬡',disaster:'ϟ',politics:'⚑',sat:'◈'};
+const glyph={conflict:'◩',air:'✈',sea:'⚓︎',money:'₿',cyber:'⬡',disaster:'ϟ',politics:'⚑',sat:'◈'};
 const levelNames=['unknown','low','medium','high','critical'];
 const colors=['#acb6bd','#65c8cf','#f1c65b','#ff9758','#ff646d'];
 const safeUrl=value=>{try{let u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password?u.href:''}catch{return ''}};
@@ -27,11 +29,11 @@ function rss(feed,text){
  const url=safeUrl(child.getAttribute('url'));if(!url||media.some(m=>m.url===url))continue;
  const type=child.getAttribute('type')||child.getAttribute('medium')||'';if(type.startsWith('video')||/\.(mp4|webm)(\?|$)/i.test(url))media.push({type:'video',url});
  else if(child.localName==='thumbnail'||type.startsWith('image')||/\.(jpe?g|png|webp)(\?|$)/i.test(url))media.push({type:'image',url});}
- return record(feed,content(el,'guid')||url,title,time,point(coords[0],coords[1])||point(content(el,'lat'),content(el,'long')),severity,summary,url,{media,place:content(el,'featureName')||content(el,'country')});
+ return record(feed,content(el,'guid')||url,title,time,point(coords[0],coords[1])||point(content(el,'lat'),content(el,'long')),severity,plain(summary).slice(0,1400),url,{source:content(el,'source')||catalogs[feed][1],excerpt:plain(content(el,'encoded')).slice(0,1500),media,place:content(el,'featureName')||content(el,'country')});
  });
 }
 function parseFeed(id,raw){
- if(['gdacs','bbc','un','france','aj'].includes(id))return rss(id,raw);
+ if(['gdacs','bbc','un','france','aj','unpeace','crisis','relief','shippingnews','ukrnews'].includes(id))return rss(id,raw);
  if(id==='buoy')return raw.trim().split(/\r?\n/).slice(2).map(line=>line.trim().split(/\s+/)).filter(a=>a.length>=16).map(a=>record(id,a[0],'NDBC '+a[0],[a[3],a[4],a[5]].join('-')+'T'+a[6]+':'+a[7]+':00Z',point(a[1],a[2]),1,
  [['WSPD',a[9],'m/s'],['WVHT',a[11],'m'],['PRES',a[15],'hPa'],['WTMP',a[17],'°C']].filter(x=>x[1]&&x[1]!=='MM').map(x=>x.join(' ')).join('  ·  '),'https://www.ndbc.noaa.gov/station_page.php?station='+encodeURIComponent(a[0])));
  if(id==='tg'){
@@ -41,6 +43,14 @@ function parseFeed(id,raw){
  return record(id,post,body.slice(0,150)||post,el.querySelector('time')?.dateTime,null,0,body,'https://t.me/'+post,{media:[...(video?[{type:'video',url:video}]:[]),...(img?[{type:'image',url:img}]:[])]});});}
  const d=JSON.parse(raw);
  switch(id){
+ case 'transits':{
+   if(d.error||!Array.isArray(d.features))throw Error('PortWatch unavailable');
+   const days=d.features.map(f=>f.attributes).filter(a=>a&&Number.isFinite(a.n_total)&&/^\d{4}-\d{2}-\d{2}$/.test(a.date)).sort((a,b)=>b.date.localeCompare(a.date));
+   if(!days.length)return [];
+   const a=days[0];return [record(id,'chokepoint6','Strait of Hormuz · commercial vessel transits',a.date,[26.56,56.25],0,
+     a.date+' · '+a.n_total+' commercial transits recorded by PortWatch. Counts are estimated from AIS coverage and may be revised.',
+     'https://portwatch.imf.org/',{anchor:'water',place:'Strait of Hormuz',placeZh:'霍尔木兹海峡',placeHant:'荷姆茲海峽',days})];
+ }
  case 'quake':return d.features.map(f=>{const p=f.properties,g=f.geometry.coordinates;return record(id,f.id,p.title,p.time,point(g[1],g[0]),({red:4,orange:3,yellow:2,green:1})[p.alert]||0,
  [p.place,'M '+p.mag,g[2]+' km',p.status,p.alert?'PAGER '+p.alert:''].filter(Boolean).join(' · '),p.url,{place:p.place});});
  case 'adsb':return d.ac.filter(a=>/^(AAL|DAL|UAL|SWA|JBU|BAW|DLH|AFR|KLM|EZY|RYR|ANA|JAL|CCA|CES|CSN|CPA|SIA|QFA|ACA|UAE|THY|IBE|LAT|KAL|AIC)\d/.test(a.flight?.trim())&&a.lat!=null&&a.lon!=null).map(a=>record(id,a.flight.trim(),a.flight.trim()+' · '+(a.t||'ADS-B'),Number(d.now)-(a.seen_pos||0)*1000,point(a.lat,a.lon),1,[a.alt_baro+' ft',a.gs+' kt','ADS-B'].join(' · '),'https://www.adsb.lol/docs/open-data/api'));

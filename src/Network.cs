@@ -12,9 +12,9 @@ internal static class Net {
     internal static readonly HttpClient Http=new HttpClient{Timeout=TimeSpan.FromSeconds(40)};
     static readonly HttpClient NoRedirect=new HttpClient(new HttpClientHandler{AllowAutoRedirect=false}){Timeout=TimeSpan.FromSeconds(40)};
     static Net(){NoRedirect.DefaultRequestHeaders.UserAgent.ParseAdd("GlobalWorkspace/"+Build.Version);Http.MaxResponseContentBufferSize=16000000;Http.DefaultRequestHeaders.UserAgent.ParseAdd("GlobalWorkspace/"+Build.Version);}
-    public static async Task<string> Get(string url,string token=null,bool fr=false,bool ship=false){
+    public static async Task<string> Get(string url,string token=null,bool fr=false,bool ship=false,bool strict=false){
         using(var req=new HttpRequestMessage(HttpMethod.Get,url)){if(token!=null)req.Headers.TryAddWithoutValidation(ship?"x-api-key":"Authorization",ship?token:"Bearer "+token);if(url.StartsWith("https://meri.digitraffic.fi/"))req.Headers.TryAddWithoutValidation("Digitraffic-User","GlobalWorkspace-Desktop");if(fr)req.Headers.TryAddWithoutValidation("Accept-Version","v1");
-        using(var res=await (token==null?Http:NoRedirect).SendAsync(req,HttpCompletionOption.ResponseHeadersRead)){res.EnsureSuccessStatusCode();using(var s=await res.Content.ReadAsStreamAsync())using(var memory=new MemoryStream()){
+        using(var res=await (token==null&&!strict?Http:NoRedirect).SendAsync(req,HttpCompletionOption.ResponseHeadersRead)){res.EnsureSuccessStatusCode();using(var s=await res.Content.ReadAsStreamAsync())using(var memory=new MemoryStream()){
           var b=new byte[32768];int n;while((n=await ReadChunk(s,b))>0){if(memory.Length+n>9000000)throw new IOException("来源响应过大");memory.Write(b,0,n);}return Encoding.UTF8.GetString(memory.ToArray()).TrimStart('\uFEFF');
         }}}
     }
@@ -22,6 +22,52 @@ internal static class Net {
       using(var timeout=new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(30))){
         using(timeout.Token.Register(()=>input.Dispose())){return await input.ReadAsync(buffer,0,buffer.Length,timeout.Token);}
       }
+    }
+    public static async Task<object> Article(string link){
+        Uri u;
+        string[] hosts={"www.bbc.co.uk","www.bbc.com","news.un.org","www.aljazeera.com","www.france24.com","www.crisisgroup.org","reliefweb.int"};
+        if(!Uri.TryCreate(link,UriKind.Absolute,out u)||u.Scheme!="https"||!u.IsDefaultPort||u.UserInfo!=""||!hosts.Contains(u.IdnHost))throw new ArgumentException("Unsupported publisher");
+        var html=await Get(u.AbsoluteUri,null,false,false,true);
+        var ld=Regex.Matches(html,@"<script\b[^>]{0,500}application/ld\+json[^>]{0,100}>(.*?)</script>",RegexOptions.Singleline|RegexOptions.IgnoreCase)
+            .Cast<Match>().Select(m=>m.Groups[1].Value).Where(s=>s.Length<180000).Take(6).ToArray();
+        var excerpts=new List<string>();
+        if(u.IdnHost=="www.bbc.co.uk"||u.IdnHost=="www.bbc.com"){
+            foreach(Match m in Regex.Matches(html,@"<p\b[^>]{0,400}(?:-Paragraph\b|sc-[^>]*\bparagraph\b)[^>]*>(.*?)</p>",RegexOptions.Singleline|RegexOptions.IgnoreCase)){
+                string s=WebUtility.HtmlDecode(Regex.Replace(m.Groups[1].Value,"<[^>]+>"," ")).Trim();
+                if(s.Length>=45&&s.Length<=600)excerpts.Add(s);
+                if(excerpts.Count==3)break;
+            }
+        }
+        return new {ld=ld,excerpts=excerpts};
+    }
+    public static async Task<string> Translate(string target,string text){
+        if(!Regex.IsMatch(target,@"^(zh-CN|zh-TW|en|hi|es|ar|arz|fr|bn|pt|id|ur|ru|de|ja|pcm|mr|vi|te|sw|tr)$")||String.IsNullOrWhiteSpace(text)||text.Length>1400)throw new ArgumentException("Translation input");
+        if(target=="pcm"||target=="arz")text=await Translate("en",text);
+        if(target=="arz"){
+            using(var body=new StringContent(C.Json.Serialize(new {format="text",content=text,source_language="en",target_language="arz"}),Encoding.UTF8,"application/json"))
+            using(var response=await Http.PostAsync("https://translate.wmcloud.org/api/translate",body)){
+                response.EnsureSuccessStatusCode();
+                return C.Str(C.Obj(await response.Content.ReadAsStringAsync()),"translation");
+            }
+        }
+        if(target=="pcm"){
+            const string endpoint="https://nithub-ai-ehn-english-to-nigerian-pidgin-translator.hf.space/gradio_api/call/translate";
+            using(var body=new StringContent(C.Json.Serialize(new {data=new[]{"BBGM Model (EN to PCM)",text}}),Encoding.UTF8,"application/json"))
+            using(var response=await Http.PostAsync(endpoint,body)){
+                response.EnsureSuccessStatusCode();
+                string job=C.Str(C.Obj(await response.Content.ReadAsStringAsync()),"event_id");
+                if(!Regex.IsMatch(job,@"^[0-9a-f]{32}$"))throw new InvalidDataException("Translation job unavailable");
+                string stream=await Get(endpoint+"/"+job);
+                var complete=Regex.Match(stream,@"event: complete\r?\ndata:\s*(\[[^\r\n]*\])");
+                if(!complete.Success)throw new InvalidDataException("Translation unavailable");
+                return C.Json.Deserialize<string[]>(complete.Groups[1].Value).FirstOrDefault();
+            }
+        }
+        var raw=await Get("https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&dt=t&tl="+target+"&q="+Uri.EscapeDataString(text));
+        var responseData=C.Json.DeserializeObject(raw) as object[];
+        var chunks=responseData==null?null:responseData[0] as object[];
+        if(chunks==null)throw new InvalidDataException("Translation unavailable");
+        return String.Concat(chunks.OfType<object[]>().Where(a=>a.Length>0).Select(a=>a[0] as string));
     }
     static string KeyPath(string id){if(id!="fr24"&&id!="x"&&id!="github"&&id!="ships")throw new ArgumentException("未知服务");return Path.Combine(C.User,id+".key");}
     public static void SetKey(string id,string key){var f=KeyPath(id);if(key==""){File.Delete(f);return;}C.Atomic(f,Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(key),null,DataProtectionScope.CurrentUser)));}
@@ -46,6 +92,14 @@ internal static class Net {
         case "kev":return Get("https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json");
         case "quake":return Get("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson");
         case "gdacs":return Get("https://www.gdacs.org/xml/rss.xml");
+        case "unpeace":return Get("https://news.un.org/feed/subscribe/en/news/topic/peace-and-security/feed/rss.xml");
+        case "shippingnews":case "ukrnews":{
+            string theme=id=="shippingnews"?"\"Strait of Hormuz\" (shipping OR trade OR insurance)":"Ukraine (civilians OR \"front line\" OR \"territorial control\" OR \"peace talks\" OR displacement)";
+            string sites=" (site:reuters.com OR site:apnews.com OR site:bbc.com OR site:un.org OR site:france24.com OR site:lloydslist.com OR site:imo.org OR site:aljazeera.com) when:14d";
+            return Get("https://news.google.com/rss/search?q="+Uri.EscapeDataString(theme+sites)+"&hl=en-US&gl=US&ceid=US:en");}
+        case "transits":return Get("https://services9.arcgis.com/weJ1QsnbMYJlCHdG/arcgis/rest/services/Daily_Chokepoints_Data/FeatureServer/0/query?where=portid%3D%27chokepoint6%27&outFields=date,n_tanker,n_cargo,n_total&orderByFields=date%20DESC&resultRecordCount=14&returnGeometry=false&f=json");
+        case "crisis":return Get("https://www.crisisgroup.org/rss.xml");
+        case "relief":return Get("https://reliefweb.int/updates/rss.xml");
         case "bbc":return Get("https://feeds.bbci.co.uk/news/world/rss.xml");
         case "un":return Get("https://news.un.org/feed/subscribe/en/news/all/rss.xml");
         case "eonet":return Get("https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=60");
