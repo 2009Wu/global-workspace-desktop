@@ -1,6 +1,7 @@
 // Run with Node 22+ on an interactive Windows desktop. All installs and shortcuts are isolated.
 import fs from 'node:fs';
 import os from 'node:os';
+import {checkMap} from './map-window.mjs';
 import path from 'node:path';
 import http from 'node:http';
 import {execFileSync,spawn} from 'node:child_process';
@@ -44,6 +45,7 @@ try{
  launch(path.join(extracted,'Install.exe'));a=await connect();await cleanJournal();
  assert.equal(active(),'0.1.0');assert.equal(await a.ev('document.querySelector("#toast").hidden'),true);assert.equal(linkPath().length,1);pass('first install, visible workspace, empty release feed and one shortcut');
  await until(()=>a.ev('document.querySelectorAll("#rows .row").length>0'),65000);
+ await checkMap(a,until,root);pass('detailed map, terrain, cities, water, country and subregion filters, legacy Taiwan bookmarks');
  await a.click('#briefBody .actions button:last-child');await until(()=>fs.existsSync(path.join(home,'user','saved.json')));const bookmark=JSON.parse(read(path.join(home,'user','saved.json')))[0].id;
  await a.ev('document.querySelector("#language").value="zh-Hant"; document.querySelector("#language").dispatchEvent(new Event("change"));');await until(()=>read(path.join(home,'user','settings.json')).includes('zh-Hant'));
  assert.equal(await a.ev('document.querySelector("#language").options.length'),21);

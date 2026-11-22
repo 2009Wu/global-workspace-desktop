@@ -13,13 +13,13 @@ const regions={'001':[[4,8],2],'142':[[32,96],3],'150':[[52,15],4],'021':[[39,-1
 const bounds={'142':[-11,25,78,180],'150':[34,-25,72,64],'021':[6,-170,85,-47],'005':[-57,-85,14,-32],'002':[-36,-26,38,62],'009':[-54,109,10,180]};
 const continents={'142':'Asia','150':'Europe','021':'North America','005':'South America','002':'Africa','009':'Oceania'};
 const paneTypes=['all','air','sea','money','cyber','disaster','politics','sat'];
-const features=world.features.filter(f=>f.properties.iso!=='ATA');
+const features=countryFeatures.filter(f=>f.properties.iso!=='ATA').sort((a,b)=>a.properties.rank-b.properties.rank);
 const countryNames=features.filter(f=>f.properties.en?.length>3).sort((a,b)=>b.properties.en.length-a.properties.en.length);
 const escapeRe=s=>s.replace(/[.*+?^$(){}|[\]\\]/g,'\\$&');
 const matchers=countryNames.map(f=>[f,new RegExp('\\b'+escapeRe(f.properties.en)+'\\b','i')]);
-const aliases={'US':'USA','U.S.':'USA','UK':'GBR','Britain':'GBR','Chinese':'CHN','Beijing':'CHN','Russian':'RUS','Moscow':'RUS','Kyiv':'UKR','Ukrainian':'UKR','Gaza':'PSX','Israeli':'ISR','Iranian':'IRN','Japanese':'JPN','Tokyo':'JPN','German':'DEU','French':'FRA','Paris':'FRA','London':'GBR','Indian':'IND','Delhi':'IND','Brazilian':'BRA','Taiwan':'TWN'};
+const aliases={'US':'USA','U.S.':'USA','UK':'GBR','Britain':'GBR','Chinese':'CHN','Beijing':'CHN','Russian':'RUS','Moscow':'RUS','Kyiv':'UKR','Ukrainian':'UKR','Gaza':'PSX','Israeli':'ISR','Iranian':'IRN','Japanese':'JPN','Tokyo':'JPN','German':'DEU','French':'FRA','Paris':'FRA','London':'GBR','Indian':'IND','Delhi':'IND','Brazilian':'BRA','China':'CHN'};
 const aliasMatchers=Object.entries(aliases).map(([a,iso])=>[iso,new RegExp('\\b'+escapeRe(a)+'\\b',a==='US'||a==='UK'?'':'i')]);
-function anchorNews(e){if(e.location||e.layer!=='politics')return e;let f=matchers.find(([,re])=>re.test(e.title))?.[0];if(!f){const iso=aliasMatchers.find(([,re])=>re.test(e.title))?.[0];f=features.find(x=>x.properties.iso===iso);}
+function anchorNews(e){if(e.location||e.layer!=='politics')return e;if(areaInHeadline(e))return e;let f=matchers.find(([,re])=>re.test(e.title))?.[0];if(!f){const iso=aliasMatchers.find(([,re])=>re.test(e.title))?.[0];f=features.find(x=>x.properties.iso===iso);}
  if(f){e.location=[f.properties.lat,f.properties.lon];e.anchor='country';e.iso=f.properties.iso;}return e;}
 const regionCodes=['001','142','150','021','005','002','009'];
 const regionText={'zh-Hans':'全球 亚洲 欧洲 北美洲 南美洲 非洲 大洋洲','zh-Hant':'全球 亞洲 歐洲 北美洲 南美洲 非洲 大洋洲',en:'World Asia Europe North_America South_America Africa Oceania',hi:'विश्व एशिया यूरोप उत्तर_अमेरिका दक्षिण_अमेरिका अफ्रीका ओशिनिया',es:'Mundo Asia Europa Norteamérica Sudamérica África Oceanía',ar:'العالم آسيا أوروبا أمريكا_الشمالية أمريكا_الجنوبية أفريقيا أوقيانوسيا',arz:'العالم آسيا أوروبا أمريكا_الشمالية أمريكا_الجنوبية أفريقيا أوقيانوسيا',fr:'Monde Asie Europe Amérique_du_Nord Amérique_du_Sud Afrique Océanie',bn:'বিশ্ব এশিয়া ইউরোপ উত্তর_আমেরিকা দক্ষিণ_আমেরিকা আফ্রিকা ওশেনিয়া',pt:'Mundo Ásia Europa América_do_Norte América_do_Sul África Oceania',id:'Dunia Asia Eropa Amerika_Utara Amerika_Selatan Afrika Oseania',ur:'دنیا ایشیا یورپ شمالی_امریکا جنوبی_امریکا افریقہ اوشیانا',ru:'Мир Азия Европа Северная_Америка Южная_Америка Африка Океания',de:'Welt Asien Europa Nordamerika Südamerika Afrika Ozeanien',ja:'世界 アジア ヨーロッパ 北アメリカ 南アメリカ アフリカ オセアニア',pcm:'World Asia Europe North_America South_America Africa Oceania',mr:'जग आशिया युरोप उत्तर_अमेरिका दक्षिण_अमेरिका आफ्रिका ओशिनिया',vi:'Thế_giới Châu_Á Châu_Âu Bắc_Mỹ Nam_Mỹ Châu_Phi Châu_Đại_Dương',te:'ప్రపంచం ఆసియా ఐరోపా ఉత్తర_అమెరికా దక్షిణ_అమెరికా ఆఫ్రికా ఓషియానియా',sw:'Dunia Asia Ulaya Amerika_Kaskazini Amerika_Kusini Afrika Oceania',tr:'Dünya Asya Avrupa Kuzey_Amerika Güney_Amerika Afrika Okyanusya'};
@@ -36,31 +36,35 @@ function configureMenus(){
  document.documentElement.lang=lang;document.documentElement.dir=['ar','arz','ur'].includes(lang)?'rtl':'ltr';document.title=t('title');rpc('title',t('title')+(view==='main'?'':' · '+t(view==='detail'?'details':view==='list'?'events':view))).catch(()=>{});
  document.querySelectorAll('[data-t]').forEach(el=>el.textContent=t(el.dataset.t));$('language').value=lang;$('query').placeholder=t('search');
  const r=$('region');r.replaceChildren();for(const id of Object.keys(regions).sort((a,b)=>a==='001'?-1:b==='001'?1:0))opt(r,id,regionName(id));const group=make('optgroup');group.label=t('region');
- features.map(f=>[f.properties.iso,countryName(f)]).sort((a,b)=>a[1].localeCompare(b[1],lang)).forEach(([id,name])=>group.append(new Option(name,id)));r.append(group);r.value=region;r.ariaLabel=t('region');
+ features.map(f=>[f.properties.iso,countryName(f)]).sort((a,b)=>a[1].localeCompare(b[1],lang)).forEach(([id,name])=>group.append(new Option(name,id)));r.append(group);const sub=make('optgroup');sub.label=countryName(featuresByCode.get('CHN'))+' · '+t('region');for(const code of Object.keys(areas))sub.append(new Option(areaName(code),code));r.append(sub);r.value=region;r.ariaLabel=t('region');
  const layerSelect=$('layerSelect');layerSelect.replaceChildren();$('layers').replaceChildren();for(const key of paneTypes){opt(layerSelect,key,t(key));const b=button('',()=>setLayer(key));b.append(make('b',glyph[key]||'◎'),make('span',t(key)));b.dataset.layer=key;$('layers').append(b);}layerSelect.value=layer;layerSelect.ariaLabel=t('layer');
  $('level').replaceChildren();opt($('level'),'any',t('severity'));levelNames.forEach((n,i)=>opt($('level'),String(i),t(n)));$('level').value=minLevel;$('level').ariaLabel=t('severity');
  $('legend').replaceChildren(...levelNames.map((n,i)=>{const p=make('span','','legenditem');const dot=make('i','','dot');dot.style.background=colors[i];p.append(dot,make('span',t(n)));return p;}));
  document.querySelectorAll('.pop').forEach(b=>{b.title=t('detach');b.ariaLabel=t('detach');});$('refresh').title=t('refresh');$('imagery').title=t('date');$('dismissDialog').title=t('close');$('resetMap').title=t('map');$('settings').title=t('settings');
  if(view==='detail')document.querySelector('#briefPane h2').textContent=t('details');
- render();updateCard();
+ render();scheduleCartography();updateCard();
 }
 function initMap(){
- map=L.map('map',{minZoom:1,maxZoom:10,zoomSnap:.25,zoomDelta:.5,zoomControl:false,attributionControl:true,worldCopyJump:false,maxBounds:[[-86,-190],[86,190]],maxBoundsViscosity:.8}).setView([16,7],2);
- map.attributionControl.setPrefix(false);map.attributionControl.addAttribution('Natural Earth');L.control.zoom({position:'bottomright'}).addTo(map);
+ map=L.map('map',{preferCanvas:true,minZoom:1,maxZoom:10,zoomSnap:.25,zoomDelta:.5,zoomControl:false,attributionControl:true,worldCopyJump:false,maxBounds:[[-86,-190],[86,190]],maxBoundsViscosity:.8}).setView([16,7],2);
+ map.attributionControl.setPrefix(false);L.control.zoom({position:'bottomright'}).addTo(map);
  grid=L.layerGroup().addTo(map);for(let x=-180;x<=180;x+=30)L.polyline([[-85,x],[85,x]],{weight:.6,opacity:.32,color:'#6b909e',interactive:false,dashArray:'2,5'}).addTo(grid);
  for(let y=-60;y<=60;y+=30)L.polyline([[y,-180],[y,180]],{weight:.6,opacity:.32,color:'#6b909e',interactive:false,dashArray:'2,5'}).addTo(grid);
- L.geoJSON(world,{style:{color:'#527580',weight:1,fillColor:'#28464e',fillOpacity:.92},onEachFeature:(f,p)=>{countryLayers.set(f.properties.iso,p);p.bindTooltip(()=>make('span',countryName(f)),{sticky:true});p.on('dblclick',e=>{L.DomEvent.stopPropagation(e);setRegion(f.properties.iso);});}}).addTo(map);
+ if(view==="main"||view==="map")setupCartography();
  marks=L.layerGroup().addTo(map);labels=L.layerGroup().addTo(map);
  map.on('moveend zoomend',()=>{clearTimeout(markTimer);markTimer=setTimeout(drawMap,85)});
  map.on('mousemove',e=>$('coords').textContent=e.latlng.lat.toFixed(2)+'° / '+e.latlng.lng.toFixed(2)+'°');
  new ResizeObserver(()=>{map.invalidateSize();}).observe($('mapWrap'));frameRegion();
 }
-function frameRegion(){if(!map)return;if(region==='001'){map.fitBounds([[-53,-173],[73,178]],{padding:[5,5]});}else if(regions[region])map.setView(...regions[region]);else {const l=countryLayers.get(region);if(l)map.fitBounds(l.getBounds(),{maxZoom:7,padding:[14,14]});}}
+function frameRegion(){if(!map)return;if(region==='001'){map.fitBounds([[-53,-173],[73,178]],{padding:[5,5]});}else if(regions[region])map.setView(...regions[region]);else {const f=featuresByCode.get(region);if(f)map.fitBounds(leafletBounds(f),{maxZoom:8,padding:[14,14],animate:false});}}
 function inPolygon(coords,ll){const x=ll[1],y=ll[0];let inside=false;for(let i=0,j=coords.length-1;i<coords.length;j=i++){
  const [a,b]=coords[i],[c,d]=coords[j];if((b>y)!==(d>y)&&x<(c-a)*(y-b)/(d-b)+a)inside=!inside;}return inside;}
 function matchesRegion(e){
- if(region==='001')return true;if(!e.location)return false;if(e.iso===region)return true;
- if(features.some(f=>f.properties.iso===region)){const poly=countryLayers.get(region);if(!poly?.getBounds().contains(e.location))return false;const f=poly.feature.geometry,polys=f.type==='Polygon'?[f.coordinates]:f.coordinates;return polys.some(p=>inPolygon(p[0],e.location)&&!p.slice(1).some(r=>inPolygon(r,e.location)));}
+ if(region==='001')return true;
+ if(!e.location)return false;
+ if(featuresByCode.has(region)){
+   if(e.anchor==='country'&&(e.area===region||e.iso===region))return true;
+   return insideArea(region,e.location);
+ }
  const b=bounds[region];return b&&e.location[0]>=b[0]&&e.location[0]<=b[2]&&e.location[1]>=b[1]&&e.location[1]<=b[3];}
 function allRows(){return (mode==='saved'?saved:Object.values(cache).flatMap(c=>c.records||[])).filter(e=>(layer==='all'||e.layer===layer)&&(minLevel==='any'||e.severity===+minLevel)&&matchesRegion(e)&&(!filter||(e.title+' '+e.source+' '+e.summary).toLowerCase().includes(filter.toLowerCase())));}
 function sortRows(rows){return rows.sort((a,b)=>{if(layer==='all'&&mode!=='saved'){const obs=e=>['metar','buoy','fx','ferry','crypto','fr24','adsb','baltic','ships'].includes(e.feed)?1:0;const diff=obs(a)-obs(b);if(diff)return diff;}return b.time.localeCompare(a.time);});}
@@ -70,17 +74,17 @@ function drawMap(){
  for(const group of groups.values()){const e=group.find(x=>x.id===selected?.id)||group.reduce((a,b)=>a.severity>=b.severity?a:b);
  const el=make('span',group.length>1?String(group.length):glyph[e.layer],'pin'+(group.length>1?' cluster':'')+(selected?.id===e.id?' sel':''));el.style.color=colors[e.severity];const icon=L.divIcon({className:'marker',html:el,iconAnchor:[10,10],iconSize:[20,20]});
  L.marker(e.location,{icon,title:e.title,keyboard:true}).addTo(marks).on('click',()=>{selectEvent(e,false);if(group.length>1&&map.getZoom()<7)map.setView(e.location,map.getZoom()+1);});}
- if(z>=3){const occupied=[];for(const f of features){const p=[f.properties.lat,f.properties.lon];if(!area.contains(p))continue;const pt=map.latLngToContainerPoint(p);if(occupied.some(q=>Math.abs(q.x-pt.x)<65&&Math.abs(q.y-pt.y)<24))continue;occupied.push(pt);L.marker(p,{interactive:false,keyboard:false,icon:L.divIcon({className:'country-label',html:make('span',countryName(f)),iconSize:[85,15],iconAnchor:[42,7]}),zIndexOffset:-900}).addTo(labels);}}
+ paintPlaceLabels(z,area,[]);
  $('mapStats').textContent=t('map')+'  /  '+rows.length.toLocaleString(lang);
 }
 function satLayer(){
  $('imagery').hidden=layer!=='sat';$('imagery').value=sessionDate;if(!map)return;
  if(satellite){satellite.remove();satellite=null;}
- const on=layer==='sat';countryLayers.forEach(l=>l.setStyle({fillOpacity:on?0:.92,weight:on?.6:1}));
+ const on=layer==='sat';scheduleCartography();
  if(on){satellite=L.tileLayer('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/'+sessionDate+'/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',{maxNativeZoom:9,maxZoom:10,noWrap:true,attribution:'NASA GIBS · MODIS Terra '+sessionDate}).addTo(map);
  satellite.once('tileerror',()=>notice('NASA GIBS · '+t('error')+' · '+sessionDate));}
 }
-function setRegion(id){region=id;$('region').value=id;frameRegion();render();sendSelection();if(view==='main'&&['air','sea'].includes(layer))refresh(false);}
+function setRegion(id){region=regionCode(id);ensureGeometry(region);scheduleCartography();$('region').value=id;frameRegion();render();sendSelection();if(view==='main'&&['air','sea'].includes(layer))refresh(false);}
 function setLayer(id){layer=id;mode='events';selected=null;$('layerSelect').value=id;satLayer();render();sendSelection();if(view==='main')refresh(false);}
 function render(){
  if(!startDone)return;$('savedTab').classList.toggle('on',mode==='saved');document.querySelectorAll('[data-layer]').forEach(b=>b.classList.toggle('on',mode!=='saved'&&b.dataset.layer===layer));$('mapScope').textContent=t(layer);
@@ -96,7 +100,7 @@ function render(){
 function selectEvent(e,pan){selected=e;if(pan&&map&&e.location)map.panTo(e.location);render();sendSelection();}
 function brief(e,full){const box=$('briefBody');box.replaceChildren();if(!e){box.append(make('div',t('empty'),'empty'));return;}
  const info=make('article','','info'),pill=make('span',t(levelNames[e.severity]),'pill');pill.style.color=colors[e.severity];info.append(pill,make('h3',e.title),make('div',e.source+' · '+fmt(e.time),'stamp'),make('p',e.summary||'—'));
- if(e.anchor==='country'||e.anchor==='currency'){info.append(make('small',e.anchor==='country'?'≈ '+(features.find(f=>f.properties.iso===e.iso)?countryName(features.find(f=>f.properties.iso===e.iso)):'')+' · '+t('region'):'≈ '+t('region')+' · FX','sub'));}
+ if(e.area&&areas[e.area])info.append(make('small',areaName(e.area)+' · '+countryName(featuresByCode.get('CHN')),'sub'));else if(e.anchor==='country'||e.anchor==='currency'){info.append(make('small',e.anchor==='country'?'≈ '+(features.find(f=>f.properties.iso===e.iso)?countryName(features.find(f=>f.properties.iso===e.iso)):'')+' · '+t('region'):'≈ '+t('region')+' · FX','sub'));}
  if(full&&e.history?.length){info.append(make('h4',t('updated')));for(const h of e.history)info.append(make('div',fmt(h.time),'stamp'),make('p',h.title+' · '+h.summary));}
  if(full){info.append(make('h4',t('sources')));for(const link of e.links||[])if(safeUrl(link.url)){const a=button(link.name+' · '+new URL(link.url).hostname,()=>rpc('external',link.url),'sourcebutton');info.append(a);}
  if(e.media?.length){info.append(make('h4',t('media')));for(const media of e.media){if(!safeUrl(media.url))continue;const m=make(media.type==='video'?'video':'img','','media');m.src=media.url;m.referrerPolicy='no-referrer';if(media.type==='video'){m.controls=true;m.preload='metadata';}else m.alt=e.title;info.append(m,button(e.source,()=>rpc('external',media.url),'sourcebutton'));}}}
@@ -117,7 +121,7 @@ async function fetchOne(id,force){
  catch(e){status[id]=existing?'cached':'error';console.warn(id,e.message);}finally{loading.delete(id);clearTimeout(queued);queued=setTimeout(()=>{render();channel.postMessage({type:'feeds',status});},180);}
 }
 async function refresh(force){if(view!=='main'){channel.postMessage({type:'refresh',force});return;}await Promise.all(Object.keys(catalogs).map(id=>fetchOne(id,force)));render();}
-function loadCaches(){for(const id of Object.keys(catalogs)){const v=readLocal('desk:feed:'+id,null);if(v){cache[id]=v;status[id]||='cached';}}}
+function loadCaches(){for(const id of Object.keys(catalogs)){const v=readLocal('desk:feed:'+id,null);if(v){v.records=(v.records||[]).map(upgradeRecord);cache[id]=v;status[id]||='cached';}}}
 function showDialog(page,title){const d=$('dialog');d.dataset.page=page;$('dialogTitle').textContent=t(title);$('dialogBody').replaceChildren();if(!d.open)d.showModal();return $('dialogBody');}
 function sourcesScreen(){const body=showDialog('sources','sourceState');for(const [id,[type,name]] of Object.entries(catalogs)){
  const row=make('div','','sourceRow');row.append(make('span',name),make('small',t(type)+' · '+t(status[id]||'waiting')+(cache[id]?' · '+fmt(cache[id].fetched):'')));body.append(row);}body.append(button(t('refresh'),()=>refresh(true)));}
@@ -147,16 +151,16 @@ function wire(){
  $('settings').onclick=settingsScreen;$('sourcesTab').onclick=sourcesScreen;$('dismissDialog').onclick=()=>$('dialog').close();document.querySelectorAll('.pop').forEach(b=>b.onclick=()=>rpc('window',b.dataset.view,JSON.stringify({selected,layer,region,minLevel,filter,sessionDate})));
  handleSplitter('splitX','x');handleSplitter('splitY','y');
 }
-function syncFocus(m,pan){layer=m.layer;region=m.region;minLevel=m.minLevel;filter=m.filter;selected=m.selected;sessionDate=m.sessionDate||sessionDate;$('query').value=filter;configureMenus();satLayer();if(pan)frameRegion();}
+function syncFocus(m,pan){layer=m.layer;region=regionCode(m.region);ensureGeometry(region);minLevel=m.minLevel;filter=m.filter;selected=upgradeRecord(m.selected);sessionDate=m.sessionDate||sessionDate;$('query').value=filter;configureMenus();satLayer();if(pan)frameRegion();}
 channel.onmessage=({data:m})=>{if(!startDone)return;if(m.type==='feeds'&&view!=='main'){Object.assign(status,m.status);loadCaches();render();}
  if(m.type==='refresh'&&view==='main')refresh(m.force);if(m.type==='focus'&&view!=='detail')syncFocus(m,region!==m.region);};
 chrome.webview.addEventListener('message',async({data:m})=>{if(m.type==='reply'){const p=calls.get(m.value.id);if(p){calls.delete(m.value.id);m.value.error?p.reject(Error(m.value.error)):p.resolve(m.value.result);}return;}
- if(m.type==='update'){state=m.value;updateCard();}if(m.type==='changed'&&startDone){if(m.value==='saved'){saved=JSON.parse(await rpc('read','saved'));render();}else{settings=JSON.parse(await rpc('read','settings'));lang=settings.lang||lang;configureMenus();}}});
+ if(m.type==='update'){state=m.value;updateCard();}if(m.type==='changed'&&startDone){if(m.value==='saved'){saved=JSON.parse(await rpc('read','saved')).map(upgradeRecord);render();}else{settings=JSON.parse(await rpc('read','settings'));lang=settings.lang||lang;configureMenus();}}});
 async function boot(){wire();const ready=await rpc('ready');version=ready.version;repo=ready.repo;state=ready.state;creds={fr24:ready.fr24,x:ready.x,github:ready.github,ships:ready.ships};
- settings=JSON.parse(await rpc('read','settings'));lang=localeNames[settings.lang]?settings.lang:'zh-Hans';saved=JSON.parse(await rpc('read','saved'));
- const prev=readLocal('desk:session',{});layer=prev.layer||layer;region=prev.region||region;minLevel=prev.minLevel||minLevel;filter=prev.filter||'';sizeX=prev.sizeX||sizeX;sizeY=prev.sizeY||sizeY;sessionDate=prev.sessionDate||sessionDate;layouts();
- if(view!=='main'){document.body.classList.add('single');$('mapPane').hidden=view!=='map';document.querySelector('.right').hidden=view==='map';$('listPane').hidden=view!=='list';$('briefPane').hidden=!['brief','detail'].includes(view);if(view==='detail')standalone=JSON.parse(ready.data);else if(ready.data){const d=JSON.parse(ready.data);layer=d.layer;region=d.region;minLevel=d.minLevel;filter=d.filter;selected=d.selected;sessionDate=d.sessionDate;}}
- $('headVersion').textContent='v'+version;$('query').value=filter;loadCaches();initMap();startDone=true;configureMenus();satLayer();render();
+ settings=JSON.parse(await rpc('read','settings'));lang=localeNames[settings.lang]?settings.lang:'zh-Hans';saved=JSON.parse(await rpc('read','saved')).map(upgradeRecord);
+ const prev=readLocal('desk:session',{});layer=prev.layer||layer;region=regionCode(prev.region||region);minLevel=prev.minLevel||minLevel;filter=prev.filter||'';sizeX=prev.sizeX||sizeX;sizeY=prev.sizeY||sizeY;sessionDate=prev.sessionDate||sessionDate;layouts();
+ if(view!=='main'){document.body.classList.add('single');$('mapPane').hidden=view!=='map';document.querySelector('.right').hidden=view==='map';$('listPane').hidden=view!=='list';$('briefPane').hidden=!['brief','detail'].includes(view);if(view==='detail')standalone=upgradeRecord(JSON.parse(ready.data));else if(ready.data){const d=JSON.parse(ready.data);layer=d.layer;region=regionCode(d.region);minLevel=d.minLevel;filter=d.filter;selected=upgradeRecord(d.selected);sessionDate=d.sessionDate;}}
+ $('headVersion').textContent='v'+version;$('query').value=filter;loadCaches();initMap();ensureGeometry(region);startDone=true;configureMenus();satLayer();render();
  if(view==='main'){await rpc('healthy');refresh(false);setInterval(()=>refresh(false),60000);if(ready.installError)notice(ready.installError);}setInterval(()=>$('clock').textContent=new Date().toISOString().slice(11,19)+' UTC',1000);
 }
 boot().catch(e=>notice(e.message));
