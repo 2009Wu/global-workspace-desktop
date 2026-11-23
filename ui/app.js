@@ -52,7 +52,7 @@ function putPref(){return rpc('write','settings',JSON.stringify(settings))}
 function readLocal(id,fallback){try{return JSON.parse(localStorage.getItem(id))??fallback}catch{return fallback}}
 function sendSelection(){channel.postMessage({type:'focus',layer,region,eventType,minLevel,filter,selected,sessionDate,imageryMode});persistSession();}
 function configureMenus(){
- document.documentElement.lang=lang;document.documentElement.dir=['ar','arz','ur'].includes(lang)?'rtl':'ltr';if(view==='country'){document.querySelectorAll('[data-t]').forEach(el=>el.textContent=t(el.dataset.t));$('language').value=lang;renderCountry();return}document.title=t('title');rpc('title',t('title')+(view==='main'?'':' · '+t(view==='detail'?'details':view==='list'?'events':view))).catch(()=>{});
+ document.documentElement.lang=lang;document.documentElement.dir=['ar','arz','ur'].includes(lang)?'rtl':'ltr';if(view==='votes'){localizeVoteView();return}if(view==='country'){document.querySelectorAll('[data-t]').forEach(el=>el.textContent=t(el.dataset.t));$('language').value=lang;renderCountry();return}document.title=t('title');rpc('title',t('title')+(view==='main'?'':' · '+t(view==='detail'?'details':view==='list'?'events':view))).catch(()=>{});
  document.querySelectorAll('[data-t]').forEach(el=>el.textContent=t(el.dataset.t));$('language').value=lang;$('query').placeholder=t('search');
  if(view==='main')for(const head of document.querySelectorAll('#workspace .panelhead')){
    head.title=paneDragHints[lang]||paneDragHints.en;
@@ -201,7 +201,7 @@ function paintRows(records){
  if(focus?.isConnected&&document.activeElement!==focus)focus.focus({preventScroll:true});
 }
 function render(){
- if(!startDone)return;if(view==='country'){renderCountry();return}if(view==='detail'){brief(standalone,true);observeTranslations();return;}$('savedTab').classList.toggle('on',mode==='saved');document.querySelectorAll('[data-layer]').forEach(b=>b.classList.toggle('on',mode!=='saved'&&b.dataset.layer===layer));$('mapScope').textContent=t(layer);
+ if(!startDone)return;if(view==='votes')return;if(view==='country'){renderCountry();return}if(view==='detail'){brief(standalone,true);observeTranslations();return;}$('savedTab').classList.toggle('on',mode==='saved');document.querySelectorAll('[data-layer]').forEach(b=>b.classList.toggle('on',mode!=='saved'&&b.dataset.layer===layer));$('mapScope').textContent=t(layer);
  moveLayerHighlight();
  $('topoBoundaryKey').hidden=layer!=='military';
  $('conflictTopics').hidden=layer!=='conflict';if(layer==='conflict'){const latest=cache.transits?.records?.[0];$('hormuzTopic').textContent=(lang==='zh-Hans'?'霍尔木兹海峡':lang==='zh-Hant'?'荷姆茲海峽':'Strait of Hormuz')+(latest?'  ·  '+latest.time.slice(0,10):'');$('ukraineTopic').textContent=regionName('UA');}
@@ -463,6 +463,7 @@ function wirePaneLayout(){
  }
 }
 function wire(){
+ $('voteOpen').onclick=()=>rpc('window','votes');
  $('countryOpen').onclick=()=>openCountry(region);
  $('publicationSort').setAttribute('aria-pressed',String(sortByPublication));
  $('publicationSort').onclick=()=>{
@@ -488,6 +489,7 @@ function wire(){
 }
 function syncFocus(m,pan){layer=m.layer;region=regionCode(m.region);ensureGeometry(region);eventType=validEventType(m.eventType);minLevel=m.minLevel;filter=m.filter;selected=upgradeRecord(m.selected);applyImageryMode(m.imageryMode);sessionDate=m.sessionDate||sessionDate;$('query').value=filter;configureMenus();satLayer();if(pan)frameRegion();}
 channel.onmessage=({data:m})=>{if(!startDone)return;
+ if(view==='votes')return;
  if(view==='country'){profileMessage(m);return}
  if(view==='main'&&m.type==='countryRequest'){sendCountrySnapshot(m.code);return}
  if(m.type==='locate'&&(view==='main'||view==='map'))openLocation(upgradeRecord(m.event));if(m.type==='feeds'&&view!=='main'&&view!=='detail'){Object.assign(status,m.status);if(m.ids?.length){m.ids.forEach(restoreFeed);render()}else updateFeedStatus()}
@@ -503,6 +505,7 @@ function readStory(raw){
 }
 async function boot(){wire();const [ready,prefs,bookmarks]=await Promise.all([rpc('ready'),rpc('read','settings'),rpc('read','saved')]);version=ready.version;updateClock();setInterval(updateClock,1000);localAIReady=!!ready.localAI;repo=ready.repo;state=ready.state;creds={fr24:ready.fr24,x:ready.x,github:ready.github,ships:ready.ships};
  settings=JSON.parse(prefs);lang=localeNames[settings.lang]?settings.lang:'zh-Hans';saved=JSON.parse(bookmarks).map(upgradeRecord);
+ if(view==='votes'){await startVotes();return}
  if(view==='country'){await startCountry(ready.data);return}
  if(view==='detail'){
    $('refreshAll').hidden=true;document.body.classList.add('single','dossier');$('mapPane').hidden=true;$('listPane').hidden=true;

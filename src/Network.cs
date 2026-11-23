@@ -122,6 +122,7 @@ internal static class Net {
            if(!Regex.IsMatch(arg,@"^-?\d+(\.\d+)?,-?\d+(\.\d+)?$"))throw new ArgumentException("坐标无效");var pair=arg.Split(',');
            if(id=="ships")return Get("https://api.datalastic.com/api/v0/vessel_inradius?type=Cargo&radius=30&lat="+pair[0]+"&lon="+pair[1],Key("ships"),false,true);
            return Get("https://api.adsb.lol/v2/point/"+pair[0]+"/"+pair[1]+"/150");}
+        case "unvotes":return Get("https://digitallibrary.un.org/search?p=930__a%3AVOT%20AND%20791__b%3AA%2F%20AND%20591__a%3ARECORDED*&of=xm&rg=40&sf=year&so=d",revalidate:true);
         case "fedpolicy":return Get("https://www.federalreserve.gov/feeds/press_monetary.xml",revalidate:true);
         case "ecbpress":return Get("https://www.ecb.europa.eu/rss/press.html",revalidate:true);
         case "aaib":case "maib":return Get("https://www.gov.uk/api/search.json?filter_format="+id+"_report&order=-public_timestamp&count=24&fields=title,description,link,public_timestamp,first_published_at",revalidate:true);

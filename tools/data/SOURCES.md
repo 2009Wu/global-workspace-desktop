@@ -28,3 +28,5 @@ OpenFreeMap 的 planet TileJSON 提供全球 OpenMapTiles 矢量瓦片。客户�
 
 
 Capital names and IANA time zones in atlas/capitals.json are derived from GeoNames countryInfo, allCountries and alternateNamesV2, licensed under CC BY 4.0 (https://www.geonames.org/ and https://creativecommons.org/licenses/by/4.0/). Regenerate with tools/Build-Capitals.py.
+
+United Nations Dag Hammarskjöld Library, *United Nations General Assembly Voting Data*, version 6 (15 October 2026), United Nations, downloaded 23 November 2026 UTC from https://digitallibrary.un.org/record/4060887 . The offline map uses rows dated 2015 onward. Source CSV: https://digitallibrary.un.org/record/4060887/files/2026_10_15_votes_ga.csv . The recent records and translated titles come from the UN Digital Library MARCXML export: https://digitallibrary.un.org/search?p=930__a%3AVOT%20AND%20791__b%3AA%2F%20AND%20591__a%3ARECORDED*&of=xm&rg=40&sf=year&so=d . Rebuild with tools/Build-Votes.py. UN source terms and documentation: https://digitallibrary.un.org/record/4060887/files/2026_10_15_votes_ga_1.md .
