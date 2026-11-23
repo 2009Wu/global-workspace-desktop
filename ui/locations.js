@@ -60,6 +60,8 @@ function nearbyNames(){
 }
 function openLocation(e,zoom=true){
   if(!e.location||$('mapPane').hidden)return;
+  if(cityScene?.active){cityScene.locate(e);return}
+  if(desktopGlobe?.visible){desktopGlobe.locate(e);return}
   map.closePopup();activeLocation=e;
   if(zoom){
     const z=regionalPoint(e)?(e.anchor==='city'?10:e.anchor==='water'?7:e.area?7:5):['gdacs','eonet','quake'].includes(e.feed)?12:15;

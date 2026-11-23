@@ -1,5 +1,5 @@
 'use strict';
-const publishers=new Set(['www.bbc.co.uk','www.bbc.com','news.un.org','www.aljazeera.com','www.france24.com','www.crisisgroup.org','reliefweb.int']);
+const publishers=new Set(['www.bbc.co.uk','www.bbc.com','news.un.org','www.aljazeera.com','www.france24.com','www.crisisgroup.org','reliefweb.int','therecord.media']);
 async function enrichArticle(e){
  const url=safeUrl(e?.links?.[0]?.url);if(!url||!publishers.has(new URL(url).hostname))return;
  const key='desk:article:'+url;

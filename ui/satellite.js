@@ -16,6 +16,57 @@ const worldImageService='https://services.arcgisonline.com/ArcGIS/rest/services/
 let imageryMode='mosaic', activeImageryKey='';
 function applyImageryMode(value){imageryMode=value==='daily'?'daily':'mosaic';}
 
+const coverageBlocks=new Map();
+async function mosaicCoverage(z,x,y,signal){
+  const size=Math.min(16,2**z),left=x-x%size,top=y-y%size;
+  const key=[z,top,left,size,size].join('/');
+  let block=coverageBlocks.get(key);
+  if(!block){
+    // Shared coverage requests outlive the individual tiles that use them.
+    block=fetch(worldImageService+'/tilemap/'+key+'?f=json',{signal:AbortSignal.timeout(6000)})
+      .then(response=>response.ok?response.json():null)
+      .catch(()=>null);
+    coverageBlocks.set(key,block);
+    if(coverageBlocks.size>192)coverageBlocks.delete(coverageBlocks.keys().next().value);
+  }
+  const result=await block;signal.throwIfAborted();
+  if(!result?.valid||!result.location){if(coverageBlocks.get(key)===block)coverageBlocks.delete(key);return undefined;}
+  const box=result.location,dx=x-box.left,dy=y-box.top;
+  if(dx>=0&&dx<box.width&&dy>=0&&dy<box.height)return result.data[dy*box.width+dx];
+}
+async function mosaicPhoto(coords,signal){
+  const timeout=AbortSignal.any([signal,AbortSignal.timeout(15000)]);
+  for(let z=coords.z;z>=0;z--){
+    const factor=2**(coords.z-z),x=Math.floor(coords.x/factor),y=Math.floor(coords.y/factor);
+    if(z>=16&&await mosaicCoverage(z,x,y,timeout)===0)continue;
+    let response;
+    try{response=await fetch(worldImageService+'/tile/'+z+'/'+y+'/'+x+'?blankTile=false',{signal:timeout});}
+    catch(error){
+      // A missing CDN image can return a 404 without a CORS header.
+      if(!timeout.aborted&&await mosaicCoverage(z,x,y,timeout)===0)continue;
+      throw error;
+    }
+    if(response.status===404||response.headers.get('blank-tile')==='true')continue;
+    if(!response.ok)throw Error('Imagery '+response.status);
+    const image=await response.blob();
+    if(factor===1)return {image,z};
+    const bitmap=await createImageBitmap(image);
+    try{
+      timeout.throwIfAborted();
+      const canvas=new OffscreenCanvas(256,256),size=bitmap.width/factor;
+      canvas.getContext('2d').drawImage(bitmap,(coords.x%factor)*size,(coords.y%factor)*size,size,size,0,0,256,256);
+      return {image:await canvas.convertToBlob(),z};
+    }finally{bitmap.close();}
+  }
+  throw Error('Imagery unavailable');
+}
+async function mosaicProtocol(request,controller){
+  const match=/^mosaic:\/\/tiles\/(\d+)\/(\d+)\/(\d+)$/.exec(request.url);
+  if(!match)throw Error('Invalid imagery tile');
+  const {image}=await mosaicPhoto({z:+match[1],y:+match[2],x:+match[3]},controller.signal);
+  return {data:await image.arrayBuffer()};
+}
+
 const MosaicLayer=L.GridLayer.extend({
   createTile(coords, done){
     const tile=document.createElement('canvas');
@@ -28,24 +79,12 @@ const MosaicLayer=L.GridLayer.extend({
     return tile;
   },
   async paintImage(tile,coords,signal){
-    // A 404 denotes missing native coverage. Crop the matching quadrant of a
-    // coarser tile so the photograph remains aligned with the event coordinates.
-    const timeout=AbortSignal.any([signal,AbortSignal.timeout(15000)]);
-    for(let z=coords.z;z>=0;z--){
-      const factor=2**(coords.z-z),x=Math.floor(coords.x/factor),y=Math.floor(coords.y/factor);
-      const response=await fetch(worldImageService+'/tile/'+z+'/'+y+'/'+x+'?blankTile=false',{signal:timeout});
-      if(response.status===404)continue;
-      if(!response.ok)throw Error('Imagery '+response.status);
-      const bitmap=await createImageBitmap(await response.blob());
-      try{
-        if(signal.aborted)return;
-        const size=bitmap.width/factor;
-        tile.getContext('2d').drawImage(bitmap,(coords.x%factor)*size,(coords.y%factor)*size,size,size,0,0,256,256);
-        tile.dataset.nativeZoom=z;
-      }finally{bitmap.close();}
-      return;
-    }
-    throw Error('Imagery unavailable');
+    const {image,z}=await mosaicPhoto(coords,signal);
+    const bitmap=await createImageBitmap(image);
+    try{
+      if(signal.aborted)return;
+      tile.getContext('2d').drawImage(bitmap,0,0);tile.dataset.nativeZoom=z;
+    }finally{bitmap.close();}
   }
 });
 
@@ -58,13 +97,20 @@ function imageryControls(){
 }
 function satLayer(){
   imageryControls();
+  cityScene?.syncImagery();
   if(!map||$('mapPane').hidden)return;
-  const key=layer!=='sat'?'':imageryMode==='daily'?'daily/'+sessionDate:'mosaic';
+  const key=layer==='military'?'military':layer==='terrain'?'terrain':layer!=='sat'?'':imageryMode==='daily'?'daily/'+sessionDate:'mosaic';
   scheduleCartography();
   if(activeImageryKey===key)return;
   activeImageryKey=key;$('imageryRetry').hidden=true;
   if(satellite){satellite.remove();satellite=null;}
   if(!key)return;
+  if(key==='military'){
+   satellite=L.tileLayer(topoURL,{maxNativeZoom:17,maxZoom:19,noWrap:true,attribution:topoCredits}).addTo(map);
+   satellite.on('tileerror',()=>{if(layer==='military'){$('imageryRetry').textContent='OpenTopoMap · '+t('retry');$('imageryRetry').hidden=false;}});
+   return;
+  }
+  if(key==='terrain'){satellite=L.tileLayer(reliefURL,{maxNativeZoom:13,maxZoom:19,attribution:'Esri World Shaded Relief'}).addTo(map);return;}
   const mosaic=imageryMode==='mosaic';
   const next=mosaic?new MosaicLayer({maxNativeZoom:19,maxZoom:19,noWrap:true,
     attribution:'<a href="https://goto.arcgisonline.com/maps/World_Imagery">Esri World Imagery</a> · Vantor, Earthstar Geographics, GIS User Community'}):

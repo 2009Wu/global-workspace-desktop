@@ -22,3 +22,7 @@ OpenFreeMap 的 planet TileJSON 提供全球 OpenMapTiles 矢量瓦片。客户�
 
 渲染器为 protomaps-leaflet 5.1.0，发行文件与 BSD 授权一起保存在 ui/vendor。[Protomaps Leaflet](https://github.com/protomaps/protomaps-leaflet)
 
+行政区多语别名取自 GeoNames 的带语言标识的备用名称，使用 CC BY 4.0。越南、泰国及老挝补充匹配了 Wikidata 的中文标签，使用 CC0。简繁异体通过 OpenCC 转换。[GeoNames](https://download.geonames.org/export/dump/) · [Wikidata](https://www.wikidata.org/)
+
+地形使用 Esri World Shaded Relief 和 Terrain Tiles 的 Terrarium 高程瓦片。三维卫星影像按一倍高程绘制。军事图的国家轮廓叠加北约公布的成员和加入年份。[Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) · [北约成员与加入年份](https://www.nato.int/en/about-us/organization/nato-member-countries)
+

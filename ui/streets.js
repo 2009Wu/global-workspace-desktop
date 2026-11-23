@@ -37,10 +37,15 @@ function streetStatus(){
   box.onclick=()=>{streetRetryAt=0;streetURL=null;streetStyle=null;streetFailures.clear();refreshCartography();};
 }
 async function configureStreets(z){
-  const desired=lang+'/'+(layer==='sat'?'imagery':'street');
+  if(layer==='military'){
+    if(streets){streets.remove();streets=null;streetFailures.clear();}
+    $('streetStatus').hidden=true;
+    return;
+  }
+  const desired=lang+'/'+(['sat','military'].includes(layer)?'imagery':'street');
   if(streets&&streetStyle!==desired){streets.remove();streets=null;streetFailures.clear();}
   streetStatus();
-  if(z<9||streets||streetRequest||Date.now()<streetRetryAt)return;
+  if(z<7||(z<9&&streetURL)||streets||streetRequest||Date.now()<streetRetryAt)return;
   streetRequest=true;
   try{
     if(!streetURL){
@@ -50,8 +55,8 @@ async function configureStreets(z){
       streetURL=metadata.tiles?.find(url=>url.startsWith('https://tiles.openfreemap.org/')&&url.includes('{z}/{x}/{y}'));
       if(!streetURL)throw Error('TileJSON URL');
     }
-    if(map.getZoom()<9||desired!==lang+'/'+(layer==='sat'?'imagery':'street'))return;
-    const imagery=layer==='sat';
+    if(layer==='military'||map.getZoom()<9||desired!==lang+'/'+(['sat','military'].includes(layer)?'imagery':'street'))return;
+    const imagery=['sat','military'].includes(layer);
     const detail=protomapsL.leafletLayer({url:streetURL,minZoom:9,maxZoom:19,maxDataZoom:14,levelDiff:1,
       pane:'streetDetail',noWrap:true,attribution:streetCredits,tileDelay:1,
       ...streetStyleRules(imagery)});

@@ -13,6 +13,7 @@ using Microsoft.Web.WebView2.WinForms;
 internal class Desk : Form {
  static CoreWebView2Environment env;static readonly List<Desk> windows=new List<Desk>();static Updates update;
  static string token;static bool quitting;static int tasks;
+ readonly CitySurface city;
  readonly WebView2 browser=new WebView2();readonly string view;string data;
  static Desk standby;static bool warming;bool parked,readerReady;Task browserSetup;
  Task EnsureBrowser(){return browserSetup??(browserSetup=InitBrowser());}
@@ -39,7 +40,28 @@ internal class Desk : Form {
    quitting=true;try{while(tasks>0)await Task.Delay(100);C.Run(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"Maintenance.exe"),"--apply",stage,version,Process.GetCurrentProcess().Id.ToString());Application.Exit();}catch{quitting=false;throw;}
  }
  static void OpenUrl(string url){Uri u;if(Uri.TryCreate(url,UriKind.Absolute,out u)&&u.Scheme=="https"&&u.UserInfo=="")Process.Start(new ProcessStartInfo(u.AbsoluteUri){UseShellExecute=true});}
- Desk(string view,string data){this.view=view;this.data=data;windows.Add(this);Text=view=="main"?"全球情报工作台":"全球情报工作台 · "+(view=="detail"?"事件详情":view=="map"?"地图":view=="brief"?"事件简报":"事件列表");
+ async Task ShowStreet(string coordinates,string label){
+   var parts=coordinates.Split(',');double lat,lon;
+   var culture=System.Globalization.CultureInfo.InvariantCulture;
+   if(parts.Length!=2||!double.TryParse(parts[0],System.Globalization.NumberStyles.Float,culture,out lat)||!double.TryParse(parts[1],System.Globalization.NumberStyles.Float,culture,out lon)||!(Math.Abs(lat)<=90&&Math.Abs(lon)<=180))throw new ArgumentException("Invalid coordinates");
+   string url="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint="+Uri.EscapeDataString(coordinates);
+   var popup=new Form{Text=label+" · Google Maps · "+coordinates,Size=new Size(790,560),MinimumSize=new Size(420,330),StartPosition=FormStartPosition.CenterParent,Icon=Icon};
+   var web=new WebView2{Dock=DockStyle.Fill};
+   var fallback=new LinkLabel{Text="Google Maps ↗",Dock=DockStyle.Bottom,Height=25,Padding=new Padding(8,4,0,0)};
+   fallback.LinkClicked+=(s,e)=>OpenUrl(url);
+   popup.Controls.Add(web);popup.Controls.Add(fallback);popup.Show(this);
+   try{
+     await web.EnsureCoreWebView2Async(env);
+     if(popup.IsDisposed)return;
+     var core=web.CoreWebView2;
+     core.Settings.IsWebMessageEnabled=false;core.Settings.AreHostObjectsAllowed=false;
+     core.PermissionRequested+=(s,e)=>{e.State=CoreWebView2PermissionState.Deny;};
+     core.NewWindowRequested+=(s,e)=>{e.Handled=true;if(e.IsUserInitiated)OpenUrl(e.Uri);};
+     core.NavigationStarting+=(s,e)=>{Uri uri;if(!Uri.TryCreate(e.Uri,UriKind.Absolute,out uri)||uri.Scheme!="https"||!(uri.Host=="www.google.com"||uri.Host=="consent.google.com"||uri.Host=="maps.google.com")){e.Cancel=true;if(e.IsUserInitiated)OpenUrl(e.Uri);}};
+     core.Navigate(url);
+   }catch{if(!popup.IsDisposed){popup.Close();OpenUrl(url);}}
+ }
+ Desk(string view,string data){city=new CitySurface(this);this.view=view;this.data=data;windows.Add(this);Text=view=="main"?"全球情报工作台":"全球情报工作台 · "+(view=="detail"?"事件详情":view=="map"?"地图":view=="brief"?"事件简报":"事件列表");
    StartPosition=FormStartPosition.CenterScreen;Size=view=="main"?new Size(1360,860):view=="map"?new Size(900,640):new Size(610,690);
    string geometry=Path.Combine(C.User,"window-"+view+".json");
    try{var geo=C.Obj(File.ReadAllText(geometry));var rect=new Rectangle(Convert.ToInt32(geo["x"]),Convert.ToInt32(geo["y"]),Convert.ToInt32(geo["w"]),Convert.ToInt32(geo["h"]));if(rect.Width>=390 && rect.Height>=300 && Screen.AllScreens.Any(sc=>Rectangle.Intersect(sc.WorkingArea,rect).Width>=130 && Rectangle.Intersect(sc.WorkingArea,rect).Height>=80)){StartPosition=FormStartPosition.Manual;Bounds=rect;}}catch{}
@@ -47,10 +69,13 @@ internal class Desk : Form {
    MinimumSize=view=="main"?new Size(800,540):new Size(390,340);BackColor=Color.FromArgb(14,25,33);Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
    Controls.Add(new Label{Text="全球情报工作台",AutoSize=true,ForeColor=Color.White,Location=new Point(30,35),Font=new Font("Microsoft YaHei UI",16)});
    browser.Dock=DockStyle.Fill;Controls.Add(browser);browser.BringToFront();
-   FormClosed+=(s,e)=>{windows.Remove(this);if(standby==this)standby=null;if(view=="main"){quitting=true;foreach(var w in windows.ToArray())w.Close();}};Shown+=async(s,e)=>await EnsureBrowser();
+   FormClosed+=(s,e)=>{city.Dispose();windows.Remove(this);if(standby==this)standby=null;if(view=="main"){quitting=true;foreach(var w in windows.ToArray())w.Close();}};Shown+=async(s,e)=>await EnsureBrowser();
  }
  async Task InitBrowser(){try{
-   if(env==null){var opts=new CoreWebView2EnvironmentOptions();if(Build.Test)opts.AdditionalBrowserArguments="--remote-debugging-port="+Environment.GetEnvironmentVariable("ATLAS_TEST_PORT")+(File.Exists(Path.Combine(C.Root,"test-offline"))?" --proxy-server=http://127.0.0.1:1":"");
+   if(env==null){var opts=new CoreWebView2EnvironmentOptions();// Local virtual-host files never need multicast DNS. Keep the existing origin
+      // so saved layouts, offline feeds and translations remain available.
+      opts.AdditionalBrowserArguments="--host-resolver-rules=\"MAP workspace.local 127.0.0.1\"";
+      if(Build.Test)opts.AdditionalBrowserArguments+=" --remote-debugging-port="+Environment.GetEnvironmentVariable("ATLAS_TEST_PORT")+(File.Exists(Path.Combine(C.Root,"test-offline"))?" --proxy-server=http://127.0.0.1:1":"");
       env=await CoreWebView2Environment.CreateAsync(null,Path.Combine(C.User,"webview"),opts);}
    await browser.EnsureCoreWebView2Async(env);var core=browser.CoreWebView2;
    core.SetVirtualHostNameToFolderMapping("workspace.local",Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"ui"),CoreWebView2HostResourceAccessKind.DenyCors);
@@ -65,16 +90,27 @@ internal class Desk : Form {
     try{var msg=C.Obj(e.TryGetWebMessageAsString());id=Convert.ToInt32(msg["id"]);string cmd=C.Str(msg,"cmd"),arg=C.Str(msg,"arg"),val=C.Str(msg,"val");object result=true;
        switch(cmd){
        case "ready":
-         result=new {version=Build.Version,view=view,data=data,state=update.State(),fr24=Net.HasKey("fr24"),x=Net.HasKey("x"),github=Net.HasKey("github"),ships=Net.HasKey("ships"),repo=Build.Repo,installError=C.Read(Path.Combine(C.User,"update-error.txt"),"")};
+         result=new {localAI=LocalTranslation.Available,version=Build.Version,view=view,data=data,state=update.State(),fr24=Net.HasKey("fr24"),x=Net.HasKey("x"),github=Net.HasKey("github"),ships=Net.HasKey("ships"),repo=Build.Repo,installError=C.Read(Path.Combine(C.User,"update-error.txt"),"")};
          if(view=="main"){var unused=update.Check();}break;
        case "readerReady":if(view=="detail"){readerReady=true;result=data;}break;
        case "healthy":if(view=="main")WarmReader();if(view=="main" && token!=null && System.Text.RegularExpressions.Regex.IsMatch(token,"^[a-f0-9]{32}$"))C.Atomic(Path.Combine(C.Root,"ready-"+token),"ready");break;
        case "article":result=await Net.Article(arg);break;
+       case "translateAI":result=await LocalTranslation.Translate(arg,val);break;
        case "translate":result=await Net.Translate(arg,val);break;
+       case "checkFeed":{
+         var request=C.Obj(val);
+         string query=C.Str(request,"arg"),known=C.Str(request,"known");
+         result=await Task.Run(()=>Net.CheckFeed(arg,query,known));
+         break;
+       }
        case "feed":result=await Net.Feed(arg,val);break;
        case "check":await update.Check();break;
        case "install":await update.Install();break;
        case "title":Text=arg.Substring(0,Math.Min(arg.Length,140));break;
+       case "cityOpen":await city.Open(env,arg,val);break;
+       case "cityBounds":city.Layout(arg);break;
+       case "cityClose":if(arg=="camera")result=await city.CloseAtCamera();else city.Dispose();break;
+       case "streetView":await ShowStreet(arg,val);break;
        case "external":OpenUrl(arg);break;
        case "window":if(arg=="detail")OpenReader(val);else if(new[]{"map","list","brief"}.Contains(arg))new Desk(arg,val).Show();break;
        case "key":if(quitting)throw new IOException("正在重启");Net.SetKey(arg,val);break;
@@ -92,5 +128,5 @@ internal class Desk : Form {
     }catch(Exception ex){Send("reply",new {id=id,error=ex.Message});}
  }
  [STAThread] static void Main(string[] args){C.Init();if(Build.Test && File.Exists(Path.Combine(C.Root,"test-offline")))System.Net.WebRequest.DefaultWebProxy=new System.Net.WebProxy("http://127.0.0.1:1",false);using(var m=new Mutex(false,C.Lock("app"))){if(!C.Own(m,0))return;
- try{Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);token=args.FirstOrDefault();update=new Updates(()=>Broadcast("update",update.State()),Restart);Application.Run(new Desk("main",""));}finally{m.ReleaseMutex();}}}
+ try{Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);token=args.FirstOrDefault();update=new Updates(()=>Broadcast("update",update.State()),Restart);Application.Run(new Desk("main",""));}finally{LocalTranslation.Stop();m.ReleaseMutex();}}}
 }

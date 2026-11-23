@@ -30,7 +30,7 @@ try{
 $compress=@('System.IO.Compression.dll','System.IO.Compression.FileSystem.dll')
 Compile 'GlobalWorkspace' @('Common.cs','Launcher.cs') @()
 Compile 'Maintenance' @('Common.cs','Package.cs','Maintenance.cs') $compress
-Compile 'Client' @('Common.cs','Package.cs','Network.cs','Updates.cs','Client.cs') ($compress+@('System.Drawing.dll','System.Security.dll','System.Net.Http.dll',"$project/vendor/Microsoft.Web.WebView2.Core.dll","$project/vendor/Microsoft.Web.WebView2.WinForms.dll"))
+Compile 'Client' @('Common.cs','Package.cs','Network.cs','Updates.cs','LocalTranslation.cs','CitySurface.cs','Client.cs') ($compress+@('System.Drawing.dll','System.Security.dll','System.Net.Http.dll',"$project/vendor/Microsoft.Web.WebView2.Core.dll","$project/vendor/Microsoft.Web.WebView2.WinForms.dll"))
 Copy-Item "$project/vendor/*" $payload
 Copy-Item -Recurse "$project/ui" $payload
 Copy-Item "$payload/Maintenance.exe" "$tmp/package/Install.exe"

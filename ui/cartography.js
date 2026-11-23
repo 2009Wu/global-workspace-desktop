@@ -18,11 +18,15 @@ const terrainInsets = new Map();
 function areaName(code) {
   return areas[code].names[lang==='zh-Hans'?0:lang==='zh-Hant'?1:2];
 }
+function viewpointName(code){
+ return countryName(featuresByCode.get('CHN'))+' · '+areaName(code);
+}
 function regionCode(code) {
   if(code==='TWN')return 'CN-TW';
   return regions[code]||featuresByCode.has(code)?code:'001';
 }
 function upgradeRecord(e) {
+  if(e?.feed==='metar'&&e.severity!==1)e={...e,severity:1};
   if(e?.iso==='TWN')return {...e,iso:'CHN',area:'CN-TW'};
   return e;
 }
@@ -78,6 +82,11 @@ function ensureGeometry(code) {
 }
 function countryStyle(code) {
   const selected=region===code||(areas[region]&&code==='CHN');
+
+  if(layer==='military'){
+    const highlighted=code==='CHN'||selected;
+    return {color:code==='CHN'?'#872d54':'#48666b',weight:1.7,opacity:highlighted?.88:0,fill:true,fillOpacity:0,smoothFactor:.38,bubblingMouseEvents:false};
+  }
   const sat=layer==='sat';
   return {color:selected?'#9ddfc7':sat?'#c3ccc4':'#759497',weight:selected?1.6:map.getZoom()>=5?1.15:.75,
     opacity:selected?.95:sat?.7:.78,fillColor:selected?'#58bfa2':'#425b59',fillOpacity:sat?0:selected?.17:.085,
@@ -121,9 +130,9 @@ function refreshCartography(){
     }).addTo(map);
     selectedShape=token;
   }
-  if(layer==='sat'){if(map.hasLayer(relief))relief.remove();}else if(!map.hasLayer(relief))relief.addTo(map);
+  if(['sat','terrain','military'].includes(layer)){if(map.hasLayer(relief))relief.remove();}else if(!map.hasLayer(relief))relief.addTo(map);
   for(const [code,bounds] of Object.entries(terrainFootprints)){
-    const visible=layer!=='sat'&&z<11&&z>=5&&viewport.intersects(L.latLngBounds(bounds));
+    const visible=!['sat','terrain','military'].includes(layer)&&z<11&&z>=5&&viewport.intersects(L.latLngBounds(bounds));
     if(visible&&!terrainInsets.has(code)){
       const image=L.imageOverlay('atlas/terrain-'+code+'.webp',bounds,{
         pane:'tilePane',zIndex:2,interactive:false,attribution:'Mapzen terrain · USGS / NOAA'
@@ -144,7 +153,7 @@ function paintWater(viewport,z){
   }
   const west=viewport.getWest(),east=viewport.getEast(),north=viewport.getNorth(),south=viewport.getSouth();
   const desired=new Set();
-  if(layer!=='sat'&&z<10){
+  if(layer!=='sat'&&layer!=='military'&&z<10){
     for(const f of physicalData){
       if(z+.5<f.properties.z)continue;
       const [w,s,e,n]=f.bbox;
@@ -168,7 +177,7 @@ function setupCartography(){
   map.createPane('hydrography');
   map.getPane('hydrography').style.cssText='z-index:410;pointer-events:none';
   physicalLayer=L.layerGroup().addTo(map);
-  relief=L.tileLayer('atlas/relief-{z}-{x}-{y}.webp',{maxNativeZoom:3,maxZoom:10,
+  relief=L.tileLayer('atlas/relief-{z}-{x}-{y}.webp',{maxNativeZoom:3,maxZoom:19,
     noWrap:true,zIndex:0,keepBuffer:1,updateWhenIdle:true,bounds:[[-85.051129,-180],[85.051129,180]]}).addTo(map);
   L.geoJSON(countryFeatures,{style:f=>countryStyle(f.properties.iso),onEachFeature:(f,p)=>{
     const code=f.properties.iso;countryLayers.set(code,p);shownGeometry.set(code,f.geometry);
@@ -186,7 +195,7 @@ function setupCartography(){
   Promise.all([readVector('lakes'),readVector('rivers')]).then(([lakes,rivers])=>{
     physicalData=lakes.concat(rivers);scheduleCartography();
   }).catch(console.warn);
-  readVector('places').then(data=>{cityData=data;drawMap();}).catch(console.warn);
+
 }
 const districtData=new Map(), districtRequests=new Set();
 function paintDistricts(z,viewport,place){
@@ -204,39 +213,42 @@ function paintDistricts(z,viewport,place){
         }
         continue;
       }
-      for(const [level,lat,lon,name,zh] of districtData.get(key)){
+      for(const [level,lat,lon,name,zh,names,cc] of districtData.get(key)){
         if(z<(level===2?8:level===3?9:12))continue;
-        const label=lang.startsWith('zh')&&zh?zh:name;
-        place([lat,lon],label,'district-label',Math.min(230,Math.max(44,label.length*(lang.startsWith('zh')?13:7)+12)));
+        const label=names?.[lang]||(lang.startsWith('zh')&&zh)||name;
+        place([lat,lon],label,'district-label',Math.min(230,Math.max(44,label.length*(lang.startsWith('zh')?13:7)+12)),!names?.[lang]&&label===name?cc||'':null);
       }
     }
   }
 }
 function paintPlaceLabels(z,viewport,occupied){
-  function place(ll,text,cls,width){
+  function place(ll,text,cls,width,translateCountry=null){
     if(!viewport.contains(ll))return;
     const p=map.latLngToContainerPoint(ll),half=width/2;
     if(occupied.some(d=>Math.abs(d.x-p.x)<(d.half+half)&&Math.abs(d.y-p.y)<18))return;
     occupied.push({x:p.x,y:p.y,half});
+    const node=make('span',text);if(translateCountry!==null&&lang!=='en')queuePlaceName(node,text,translateCountry,lang);
     L.marker(ll,{interactive:false,keyboard:false,zIndexOffset:-900,icon:L.divIcon({
-      className:cls,html:make('span',text),iconSize:[width,18],iconAnchor:[half,9]})}).addTo(labels);
+      className:cls,html:node,iconSize:[width,18],iconAnchor:[half,9]})}).addTo(labels);
   }
+  if(z>=3.5)for(const [code,a] of Object.entries(areas))place([a.lat,a.lon],viewpointName(code),'area-label',lang.startsWith('zh')?144:212);
   if(z>=6){
     const names=[[25.74333,123.47333,'钓鱼岛','釣魚島','Diaoyu Dao'],[25.92333,123.68167,'黄尾屿','黃尾嶼','Huangwei Yu'],
       [25.92167,124.55833,'赤尾屿','赤尾嶼','Chiwei Yu'],[25.73,123.54167,'北小岛','北小島','Bei Xiaodao'],[25.72333,123.55,'南小岛','南小島','Nan Xiaodao']];
     for(const [lat,lon,zh,hant,en] of names)place([lat,lon],lang==='zh-Hans'?zh:lang==='zh-Hant'?hant:en,'area-label',lang.startsWith('zh')?60:95);
   }
+  if(layer==='military')return;
   paintDistricts(z,viewport,place);
   if(z>=9&&streets&&!streetFailures.size)return;
-  if(z>=3.5)for(const [code,a] of Object.entries(areas))place([a.lat,a.lon],areaName(code),'area-label',lang.startsWith('zh')?62:115);
+
   if(z>=2.25)for(const f of features){
     if(z<3.5&&f.properties.rank>3)continue;
     place([f.properties.lat,f.properties.lon],countryName(f),'country-label',85);
   }
   if(z<4)return;
-  for(const [min,lat,lon,en,zh,hant] of cityData){
+  for(const [min,lat,lon,en,zh,hant,,names] of cityData){
     if(z<min+.75)continue;
-    const name=lang==='zh-Hans'?zh||en:lang==='zh-Hant'?hant||zh||en:en;
+    const name=names?.[lang]||(lang==='zh-Hans'?zh||en:lang==='zh-Hant'?hant||zh||en:en);
     place([lat,lon],name,'city-label',Math.min(130,Math.max(40,name.length*(lang.startsWith('zh')?13:7)+12)));
   }
 }

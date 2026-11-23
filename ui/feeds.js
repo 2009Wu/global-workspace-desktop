@@ -1,38 +1,57 @@
+const FEED_INTERVAL_MS = 30_000;
 const catalogs = {
- transits:['conflict','IMF PortWatch',360],shippingnews:['conflict','Google News · Hormuz shipping',20],ukrnews:['conflict','Google News · Ukraine',20],
- unpeace:['conflict','UN News · Peace and Security',15],crisis:['conflict','International Crisis Group',60],relief:['politics','OCHA · ReliefWeb',30],
- adsb:['air','adsb.lol · ODbL 1.0',5],baltic:['sea','Fintraffic · Digitraffic AIS',5],ships:['sea','Datalastic · AIS',10],france:['politics','France 24',10],aj:['politics','Al Jazeera',10],
- quake:['disaster','USGS',5],gdacs:['disaster','GDACS',10],bbc:['politics','BBC World',10],un:['politics','UN News',15],
- eonet:['sat','NASA EONET',30],cloud:['cyber','Google Cloud Service Health',15],kev:['cyber','CISA KEV',120],metar:['air','NOAA Aviation Weather',10],
- buoy:['sea','NOAA NDBC',15],ferry:['sea','MBTA Ferry',2],fx:['money','Frankfurter · ECB',120],
- crypto:['money','Coinbase Exchange',2],fr24:['air','Flightradar24',5],tg:['politics','Telegram',10],x:['politics','X',15]
+ ...officialSources,
+ ...Object.fromEntries(Object.entries(flashSources).map(([id,[name]])=>[id,['politics',name+' · Bluesky']])),
+ ...Object.fromEntries(Object.entries(disclosureSources).map(([id,s])=>[id,['cyber',s.name]])),
+ transits:['conflict','IMF PortWatch'],shippingnews:['conflict','Google News · Hormuz shipping'],ukrnews:['conflict','Google News · Ukraine'],
+ unpeace:['conflict','UN News · Peace and Security'],crisis:['conflict','International Crisis Group'],relief:['politics','OCHA · ReliefWeb'],
+ adsb:['air','adsb.lol · ODbL 1.0'],baltic:['sea','Fintraffic · Digitraffic AIS'],ships:['sea','Datalastic · AIS'],france:['politics','France 24'],aj:['politics','Al Jazeera'],
+ quake:['disaster','USGS'],gdacs:['disaster','GDACS'],bbc:['politics','BBC World'],un:['politics','UN News'],
+ eonet:['sat','NASA EONET'],cloud:['cyber','Google Cloud Service Health'],kev:['cyber','CISA KEV'],metar:['air','NOAA Aviation Weather'],
+ buoy:['sea','NOAA NDBC'],ferry:['sea','MBTA Ferry'],fx:['money','Frankfurter · ECB'],
+ crypto:['money','Coinbase Exchange'],fr24:['air','Flightradar24'],tg:['politics','Telegram'],x:['politics','X']
 };
-const glyph={conflict:'◩',air:'✈',sea:'⚓︎',money:'₿',cyber:'⬡',disaster:'ϟ',politics:'⚑',sat:'◈'};
+const glyph={terrain:"⛰",military:"⚐",flash:"ϟ",conflict:'◩',air:'✈',sea:'⚓︎',money:'₿',cyber:'⬡',disaster:'ϟ',politics:'⚑',sat:'◈'};
 const levelNames=['unknown','low','medium','high','critical'];
 const colors=['#acb6bd','#65c8cf','#f1c65b','#ff9758','#ff646d'];
 const safeUrl=value=>{try{let u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password?u.href:''}catch{return ''}};
 const plain=value=>String(value??'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
-function dateISO(value){const time=new Date(value).getTime();return Number.isFinite(time)?new Date(time).toISOString():'';}
+function dateISO(value){
+ if(value==null||value==='')return '';
+ const time=new Date(value).getTime();
+ if(!Number.isFinite(time))return '';
+ return typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)?value:new Date(time).toISOString();
+}
 function point(lat,lon){return lat!=null&&lon!=null&&lat!==''&&lon!==''&&Number.isFinite(+lat)&&Number.isFinite(+lon)&&Math.abs(lat)<=90&&Math.abs(lon)<=180?[+lat,+lon]:null;}
 const fxLocations={EUR:[50.11,8.68],GBP:[51.5,-.12],JPY:[35.68,139.69],CNY:[39.9,116.4],CAD:[45.42,-75.7],AUD:[-35.28,149.13],BRL:[-15.78,-47.93],INR:[28.61,77.21],IDR:[-6.2,106.8],KRW:[37.56,126.98],TRY:[39.93,32.85],ZAR:[-25.75,28.19],CHF:[46.95,7.45],MXN:[19.43,-99.13],SEK:[59.33,18.06],NZD:[-41.29,174.78],NOK:[59.91,10.75],PLN:[52.23,21.01],SGD:[1.35,103.82],THB:[13.76,100.5],PHP:[14.6,120.98],MYR:[3.14,101.69],CZK:[50.08,14.43],DKK:[55.68,12.57],HUF:[47.5,19.04],RON:[44.43,26.1],ILS:[31.78,35.22],ISK:[64.15,-21.94],HKD:[22.32,114.17]};
 function record(feed,key,title,time,location,severity,summary,url,more={}){
+ if(['ships','metar'].includes(feed)&&/^\d{4}-\d\d-\d\d[ T]\d\d:\d\d:\d\d(?:\.\d+)?$/.test(time))time=time.replace(' ','T')+'Z';
  return {id:feed+':'+key,feed,layer:catalogs[feed][0],source:catalogs[feed][1],title:plain(title),time:dateISO(time),location,severity,summary:plain(summary),links:[{name:catalogs[feed][1],url:safeUrl(url)}],media:[],...more};
 }
 function xml(text){const doc=new DOMParser().parseFromString(text,'application/xml');if(doc.querySelector('parsererror'))throw Error('Invalid XML');return doc;}
 function byName(el,n){return Array.from(el.getElementsByTagNameNS('*',n));}
 function content(el,n){return byName(el,n)[0]?.textContent?.trim()||'';}
-function rss(feed,text){
- return Array.from(xml(text).querySelectorAll('item')).slice(0,100).map(el=>{
- const title=content(el,'title'),url=content(el,'link'),time=content(el,'pubDate'),summary=content(el,'description');
+function rss(feed,text,doc=xml(text)){
+ return Array.from(doc.querySelectorAll('item')).slice(0,100).map(el=>{
+ const title=content(el,'title'),summary=content(el,'description');
+ let url=content(el,'link'),issued=content(el,'pubDate');
+ if(feed==='hkowarn')url=url.replace(/^http:\/\/www\.weather\.gov\.hk\//,'https://www.weather.gov.hk/');
+ if(feed==='certeu')issued=issued.replace(/ CEST$/,' +0200').replace(/ CET$/,' +0100');
+ const time=issued||content(el,'updated');
  const coords=content(el,'point').split(/\s+/),severity={Green:1,Orange:3,Red:4}[content(el,'alertlevel')]||0;
  const media=[];for(const child of [...byName(el,'thumbnail'),...byName(el,'content'),...byName(el,'enclosure')]){
  const url=safeUrl(child.getAttribute('url'));if(!url||media.some(m=>m.url===url))continue;
  const type=child.getAttribute('type')||child.getAttribute('medium')||'';if(type.startsWith('video')||/\.(mp4|webm)(\?|$)/i.test(url))media.push({type:'video',url});
  else if(child.localName==='thumbnail'||type.startsWith('image')||/\.(jpe?g|png|webp)(\?|$)/i.test(url))media.push({type:'image',url});}
- return record(feed,content(el,'guid')||url,title,time,point(coords[0],coords[1])||point(content(el,'lat'),content(el,'long')),severity,plain(summary).slice(0,1400),url,{source:content(el,'source')||catalogs[feed][1],excerpt:plain(content(el,'encoded')).slice(0,1500),media,place:content(el,'featureName')||content(el,'country')});
+ return record(feed,content(el,'guid')||url,title,time,point(coords[0],coords[1])||point(content(el,'lat'),content(el,'long')),severity,plain(summary).slice(0,1400),url,{publishedAt:dateISO(issued),source:content(el,'source')||catalogs[feed][1],excerpt:plain(content(el,'encoded')).slice(0,1500),media,place:content(el,'featureName')||content(el,'country')});
  });
 }
 function parseFeed(id,raw){
+ if(Object.hasOwn(officialSources,id))return officialRecords(id,raw);
+ if(Object.hasOwn(disclosureSources,id))return readDisclosures(id,raw,name=>{
+   const hits=placeIndex.get(norm(name));if(hits?.length!==1)return null;
+   const [place,,cc,lat,lon]=hits[0];return {place,cc,iso:isoByTwo.get(cc)||'',location:[lat,lon],anchor:'city'};
+ });
  if(['gdacs','bbc','un','france','aj','unpeace','crisis','relief','shippingnews','ukrnews'].includes(id))return rss(id,raw);
  if(id==='buoy')return raw.trim().split(/\r?\n/).slice(2).map(line=>line.trim().split(/\s+/)).filter(a=>a.length>=16).map(a=>record(id,a[0],'NDBC '+a[0],[a[3],a[4],a[5]].join('-')+'T'+a[6]+':'+a[7]+':00Z',point(a[1],a[2]),1,
  [['WSPD',a[9],'m/s'],['WVHT',a[11],'m'],['PRES',a[15],'hPa'],['WTMP',a[17],'°C']].filter(x=>x[1]&&x[1]!=='MM').map(x=>x.join(' ')).join('  ·  '),'https://www.ndbc.noaa.gov/station_page.php?station='+encodeURIComponent(a[0])));
@@ -56,13 +75,13 @@ function parseFeed(id,raw){
  case 'adsb':return d.ac.filter(a=>/^(AAL|DAL|UAL|SWA|JBU|BAW|DLH|AFR|KLM|EZY|RYR|ANA|JAL|CCA|CES|CSN|CPA|SIA|QFA|ACA|UAE|THY|IBE|LAT|KAL|AIC)\d/.test(a.flight?.trim())&&a.lat!=null&&a.lon!=null).map(a=>record(id,a.flight.trim(),a.flight.trim()+' · '+(a.t||'ADS-B'),Number(d.now)-(a.seen_pos||0)*1000,point(a.lat,a.lon),1,[a.alt_baro+' ft',a.gs+' kt','ADS-B'].join(' · '),'https://www.adsb.lol/docs/open-data/api'));
  case 'baltic':{const vessels=new Map(d.meta.filter(v=>v.shipType>=60&&v.shipType<80).map(v=>[v.mmsi,v]));return d.positions.features.filter(f=>vessels.has(f.mmsi)&&Date.now()-f.properties.timestampExternal<86400000).map(f=>{const v=vessels.get(f.mmsi),p=f.properties,c=f.geometry.coordinates;return record(id,v.mmsi,v.name,p.timestampExternal,point(c[1],c[0]),1,[v.destination,p.sog+' kt','AIS'].filter(Boolean).join(' · '),'https://www.digitraffic.fi/en/marine-traffic/');});}
  case 'ships':return d.data.vessels.filter(v=>/^cargo/i.test(v.type)).map(v=>record(id,v.uuid,v.name,v.last_position_UTC,point(v.lat,v.lon),1,[v.type,v.speed+' kt',v.destination].filter(Boolean).join(' · '),'https://datalastic.com/'));
- case 'metar':return d.map(a=>record(id,a.icaoId,a.icaoId+' · '+a.name,a.reportTime,point(a.lat,a.lon),({VFR:1,MVFR:2,IFR:3,LIFR:4})[a.fltCat]||0,a.rawOb,'https://aviationweather.gov/data/metar/?id='+a.icaoId,{place:a.name}));
+ case 'metar':return d.map(a=>record(id,a.icaoId,a.icaoId+' · '+a.name,a.reportTime,point(a.lat,a.lon),1,a.rawOb,'https://aviationweather.gov/data/metar/?id='+a.icaoId,{place:a.name,flightCategory:a.fltCat||''}));
  case 'ferry':return d.data.map(f=>{const a=f.attributes;return record(id,f.id,'MBTA · '+(a.label||f.id),a.updated_at,point(a.latitude,a.longitude),1,[f.relationships.route.data?.id,a.current_status].filter(Boolean).join(' · '),'https://www.mbta.com/schedules/ferry');});
  case 'fx':return Object.entries(d.rates).map(([currency,rate])=>record(id,currency,'USD / '+currency+'   '+rate,d.date,fxLocations[currency]||null,1,'1 USD = '+rate+' '+currency+' · '+d.date,'https://www.frankfurter.dev/',{anchor:'currency'}));
  case 'crypto':return [record(id,'btc','BTC / USD   '+Number(d.price).toLocaleString(),d.time,null,1,'Bid '+d.bid+' USD · Ask '+d.ask+' USD','https://exchange.coinbase.com/trade/BTC-USD')];
  case 'cloud':{
  const places={'europe-west2':[51.5,-.12],'europe-west1':[50.45,3.82],'europe-west3':[50.11,8.68],'europe-west4':[53.44,6.84],'us-central1':[41.26,-95.86],'us-east1':[33.2,-80.01],'us-west1':[45.59,-121.18],'us-east4':[39.04,-77.49],'asia-east1':[24.08,120.54],'asia-northeast1':[35.68,139.69],'asia-southeast1':[1.35,103.82],'asia-south1':[19.08,72.88],'australia-southeast1':[-33.87,151.21],'southamerica-east1':[-23.55,-46.63]};
- return d.slice(0,30).flatMap(i=>{const affected=[...i.currently_affected_locations||[],...i.previously_affected_locations||[]];const unique=[...new Map(affected.map(p=>[p.id,p])).values()];return (unique.length?unique:[{}]).map(p=>record(id,i.id+':'+(p.id||''),i.external_desc,i.modified||i.end||i.begin,places[p.id]||null,i.end?1:0,[p.title,i.begin,i.end].filter(Boolean).join(' · '),'https://status.cloud.google.com/'+i.uri,{place:p.title,anchor:'region'}));});}
+ return d.slice(0,30).flatMap(i=>{const affected=[...i.currently_affected_locations||[],...i.previously_affected_locations||[]];const unique=[...new Map(affected.map(p=>[p.id,p])).values()];return (unique.length?unique:[{}]).map(p=>record(id,i.id+':'+(p.id||''),i.external_desc,i.modified||i.end||i.begin,places[p.id]||null,i.end?1:0,[p.title,i.begin,i.end].filter(Boolean).join(' · '),'https://status.cloud.google.com/'+i.uri,{place:p.title,anchor:'region',publishedAt:dateISO(i.created)}));});}
  case 'kev':return d.vulnerabilities.sort((a,b)=>b.dateAdded.localeCompare(a.dateAdded)).slice(0,100).map(v=>record(id,v.cveID,v.cveID+' · '+v.vulnerabilityName,v.dateAdded,null,0,v.shortDescription+' '+v.requiredAction,'https://www.cisa.gov/known-exploited-vulnerabilities-catalog?search='+v.cveID,{links:[{name:'CISA KEV',url:'https://www.cisa.gov/known-exploited-vulnerabilities-catalog?search='+v.cveID},{name:'CVE',url:'https://www.cve.org/CVERecord?id='+v.cveID}]}));
  case 'eonet':return d.events.map(e=>{let g=e.geometry.at(-1);let coords=g?.type==='Point'?g.coordinates:[];return record(id,e.id,e.title,g?.date,point(coords[1],coords[0]),0,e.description||e.categories.map(c=>c.title).join(', '),e.link,{links:[{name:'NASA EONET',url:safeUrl(e.link)},...e.sources.map(s=>({name:s.id,url:safeUrl(s.url)}))]});});
  case 'fr24':return d.data.map(a=>record(id,a.fr24_id,a.callsign||a.flight||a.fr24_id,a.timestamp,point(a.lat,a.lon),1,[a.alt+' ft',a.gspeed+' kt'].join(' · '),'https://www.flightradar24.com/'+encodeURIComponent(a.callsign||'')+'/'+encodeURIComponent(a.fr24_id)));

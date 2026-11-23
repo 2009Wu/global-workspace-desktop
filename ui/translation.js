@@ -29,8 +29,11 @@ async function rememberText(key,value){
       const cur=store.index('time').openCursor();cur.onsuccess=()=>{if(cur.result&&extra-->0){cur.result.delete();cur.result.continue();}};};
   }
 }
-function translateReport(text,target){
-  const key=target+'\n'+text;
+let localAIReady=false;
+function translationEngine(){return localAIReady&&settings.translationEngine!=='standard'?'hymt15':'standard'}
+function translationKey(text,target,engine=translationEngine()){return (engine==='standard'?'':engine+'\n')+target+'\n'+text}
+function translateReport(text,target,engine=translationEngine()){
+  const key=translationKey(text,target,engine);
   if(translating.has(key))return translating.get(key);
   const task=(async()=>{
     const cached=await lookupText(key);if(cached){translations.set(key,cached);return cached;}
@@ -39,7 +42,7 @@ function translateReport(text,target){
     const chunks=text.match(/[\s\S]{1,900}(?:\s+|$)|[\s\S]{1,900}/gu)||[];
     const parts=[];
     for(const part of chunks){
-      const output=await rpc('translate',code,part);
+      const output=await rpc(engine==='standard'?'translate':'translateAI',code,part);
       if(!output?.trim())throw Error('Empty translation');
       parts.push(output);
     }
@@ -55,8 +58,13 @@ function drainTranslations(){
     const original=el.dataset.original,target=el.dataset.target;
     if(!el.isConnected||target!==lang)continue;
     translatingNodes++;
-    translateReport(original,target).then(value=>{
-      if(el.isConnected&&lang===target){el.textContent=value;el.title=rw(7)+' · '+original;el.lang=target;el.dataset.translated='true';el.dataset.translationLabel=rw(7);}
+    const engine=translationEngine();
+    let provider=engine;
+    translateReport(original,target,engine).catch(error=>{
+      if(engine==='standard')throw error;
+      provider='standard';return translateReport(original,target,'standard');
+    }).then(value=>{
+      if(el.isConnected&&lang===target&&engine===translationEngine()){el.textContent=value;el.title=(provider==='standard'?rw(7):'HY-MT · AI')+' · '+original;el.lang=target;el.dataset.translated='true';el.dataset.translationLabel=provider==='standard'?rw(7):'AI';}
     }).catch(()=>{
       if(el.isConnected&&lang===target){el.dataset.fallback=rw(8);el.title=rw(8)+' · '+t('error');}
     }).finally(()=>{translatingNodes--;drainTranslations();});
@@ -71,13 +79,52 @@ const translationObserver=new IntersectionObserver(items=>{
 function translated(el,value,e){
   const text=String(value||'').trim();el.textContent=text;
   // Identifiers and instrument readings retain their source format.
-  if(!text||['fx','crypto','buoy','metar','fr24','adsb','baltic','ships','ferry'].includes(e.feed)||
+  if(!text||['alliance','fx','crypto','buoy','metar','fr24','adsb','baltic','ships','ferry'].includes(e.feed)||
     (lang==='en'&&!['tg','x','relief'].includes(e.feed)))return el;
-  const key=lang+'\n'+text;
-  if(translations.has(key)){el.textContent=translations.get(key);el.title=rw(7)+' · '+text;el.dataset.translated='true';el.dataset.translationLabel=rw(7);return el;}
+  const key=translationKey(text,lang);
+  if(translations.has(key)){const tag=translationEngine()==='standard'?rw(7):'AI';el.textContent=translations.get(key);el.title=tag+' · '+text;el.dataset.translated='true';el.dataset.translationLabel=tag;return el;}
   el.dataset.original=text;el.dataset.target=lang;return el;
 }
 function observeTranslations(){
   translationObserver.disconnect();waiting.clear();
   for(const el of document.querySelectorAll('[data-original]:not([data-translated])'))translationObserver.observe(el);
+}
+
+// Translate only visible labels that have no language-tagged gazetteer entry.
+// Keep these cache entries separate from articles and from homonyms in other countries.
+const placeQueue=new Map(),placeRetry=new Map();
+let placeTimer=0,placeBusy=false;
+function queuePlaceName(node,name,country,target){
+ const key=['place-v1',country,target,name].join('\n');
+ node.title=name;
+ if(translations.has(key)){node.textContent=translations.get(key);return}
+ if((placeRetry.get(key)||0)>Date.now())return;
+ placeQueue.set(key,{key,node,name,target,country});
+ if(!placeTimer&&!placeBusy)placeTimer=setTimeout(translateVisiblePlaces,100);
+}
+async function translateVisiblePlaces(){
+ placeTimer=0;placeBusy=true;
+ try{
+  let batch=[];
+  for(const [key,item] of placeQueue){
+   if(!item.node.isConnected||item.target!==lang){placeQueue.delete(key);continue}
+   if(batch.length&&item.country!==batch[0].country)continue;
+   placeQueue.delete(key);
+   const saved=await lookupText(key);
+   if(saved){translations.set(key,saved);item.node.textContent=saved;continue}
+   batch.push(item);if(batch.length===10)break;
+  }
+  if(!batch.length)return;
+  try{
+   const code=({'zh-Hans':'zh-CN','zh-Hant':'zh-TW'})[batch[0].target]||batch[0].target;
+   const result=await rpc('translate',code,batch.map(item=>item.name).join('\n'));
+   const lines=result.trim().split(/\r?\n/);
+   if(lines.length!==batch.length)throw Error('Ambiguous labels');
+   for(const [i,item] of batch.entries()){
+    const value=lines[i].trim();if(!value)continue;
+    await rememberText(item.key,value);
+    if(item.node.isConnected&&lang===item.target){item.node.textContent=value;item.node.title=item.name;}
+   }
+  }catch{for(const item of batch)placeRetry.set(item.key,Date.now()+60000)}
+ }finally{placeBusy=false;if(placeQueue.size)placeTimer=setTimeout(translateVisiblePlaces,180)}
 }
