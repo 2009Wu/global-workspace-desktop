@@ -72,3 +72,22 @@ body:not(.single) .panel.drop-target {outline:2px solid #d6b285;outline-offset:-
 body:not(.single) .filterline,body:not(.single) .searchline {border-bottom:0;background:#202420;}
 body:not(.single) .row {border-bottom:0;border-radius:6px;width:calc(100% - 8px);margin:2px 4px;}
 .divider {touch-action:none;user-select:none;}
+
+body.country-window{display:flex;flex-direction:column}
+.country-window main,.country-window footer,.country-window #clock,.country-window #coffee,.country-window #settings{display:none}
+.country-window header{flex-shrink:0}
+.country-window #countryProfile{min-height:0;overflow:auto;padding:22px;flex:1;color:#e0ebee}
+.country-hero{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:18px;border-bottom:1px solid #304550}
+.country-hero h1{font-size:1.7rem;margin:0 0 8px}
+.country-hero a,#profileBody small,#profileBody p{color:#a6b9c1}
+.country-hero time{color:#8ce0d5;white-space:nowrap;font-variant-numeric:tabular-nums}
+#profilePin[aria-pressed=true]{background:#215357;color:#aff7eb}
+#profileBody section{margin:22px 0}
+#profileBody h2{font-size:1.03rem;margin:0 0 10px}
+#profileBody a{color:#83d8d2;text-decoration:underline;text-underline-offset:3px}
+#profileBody small{display:block;margin-top:4px}
+.country-item{padding:9px 0;border-bottom:1px solid #273a44}
+.country-item button{background:transparent;border:0;text-align:start;padding:2px 0;color:#edf2f4;height:auto;white-space:normal}
+.country-item button:hover{text-decoration:underline}
+#countryChoice{max-width:65%;margin-inline-end:10px}
+

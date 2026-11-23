@@ -41,6 +41,23 @@ internal static class Net {
         using(timeout.Token.Register(()=>input.Dispose())){return await input.ReadAsync(buffer,0,buffer.Length,timeout.Token);}
       }
     }
+    // Share the same in-flight fetch and 30-second polling window across country panels.
+    static readonly Dictionary<string,Task<string>> countryRequests=new Dictionary<string,Task<string>>();
+    static readonly Dictionary<string,DateTime> countryChecks=new Dictionary<string,DateTime>();
+    public static Task<string> CountrySource(string id){
+        string url;
+        switch(id){
+        case "calendar":url="https://indico.un.org/category/0/events.ics";break;
+        case "china":url="https://www.mfa.gov.cn/web/fyrbt_673021/";break;
+        default:throw new ArgumentException("Unknown country source");
+        }
+        lock(countryRequests){
+            Task<string> task;
+            if(countryRequests.TryGetValue(id,out task)&&(!task.IsCompleted || (DateTime.UtcNow-countryChecks[id]).TotalSeconds<30))return task;
+            countryChecks[id]=DateTime.UtcNow;
+            return countryRequests[id]=Get(url,null,false,false,false,true);
+        }
+    }
     public static async Task<object> Article(string link){
         Uri u;
         string[] hosts={"www.bbc.co.uk","www.bbc.com","news.un.org","www.aljazeera.com","www.france24.com","www.crisisgroup.org","reliefweb.int","therecord.media"};

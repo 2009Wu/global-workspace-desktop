@@ -279,6 +279,11 @@ mapDiv.addEventListener('wheel',event=>{
 mapDiv.addEventListener('pointerdown',stopWheel,{capture:true});
 const tools=$('globeTools').children;tools[0].onclick=()=>zoomBy(1.18);tools[1].onclick=()=>zoomBy(1/1.18);tools[2].onclick=home;
 let drag=null;canvas.onpointerdown=e=>{stopWheel();cancelAnimationFrame(anim);drag=[e.clientX,e.clientY,lon,lat];canvas.setPointerCapture(e.pointerId)};canvas.onpointermove=e=>{if(!drag)return;const scale=64/stateGeo().r;lon=((drag[2]-(e.clientX-drag[0])*scale+540)%360)-180;lat=Math.max(-85,Math.min(85,drag[3]+(e.clientY-drag[1])*scale));refreshGlobe()};canvas.onpointerup=e=>{if(drag&&Math.hypot(e.clientX-drag[0],e.clientY-drag[1])>4)followMapCenter(lat,lon);drag=null};canvas.onpointercancel=()=>drag=null;
+canvas.ondblclick=e=>{
+ const rect=globe.getBoundingClientRect();
+ const code=countryAt(spherePoint(L.point(e.clientX-rect.left,e.clientY-rect.top)));
+ if(code)openCountry(code);
+};
 globe.addEventListener('wheel',e=>{e.preventDefault();const rect=globe.getBoundingClientRect();queueZoom(wheelLevels(e),L.point(e.clientX-rect.left,e.clientY-rect.top),false)},{passive:false});canvas.onkeydown=e=>{const moves={ArrowLeft:[0,-12],ArrowRight:[0,12],ArrowUp:[9,0],ArrowDown:[-9,0]};if(moves[e.key]){e.preventDefault();const [dy,dx]=moves[e.key];focusAt(Math.max(-85,Math.min(85,lat+dy)),lon+dx)}if(e.key==='+'||e.key==='=')zoomBy(1.18);if(e.key==='-')zoomBy(1/1.18)};
 
 let requested=readLocal('desk:mapProjection','globe')!=='flat',visible=false,focused=null,markerKey='',groups=[];

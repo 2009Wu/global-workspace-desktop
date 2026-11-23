@@ -61,7 +61,7 @@ internal class Desk : Form {
      core.Navigate(url);
    }catch{if(!popup.IsDisposed){popup.Close();OpenUrl(url);}}
  }
- Desk(string view,string data){city=new CitySurface(this);this.view=view;this.data=data;windows.Add(this);Text=view=="main"?C.DisplayName:C.DisplayName+" · "+(view=="detail"?"事件详情":view=="map"?"地图":view=="brief"?"事件简报":"事件列表");
+ Desk(string view,string data){city=new CitySurface(this);this.view=view;this.data=data;windows.Add(this);Text=view=="main"?C.DisplayName:C.DisplayName+" · "+(view=="country"?"国家概览":view=="detail"?"事件详情":view=="map"?"地图":view=="brief"?"事件简报":"事件列表");
    StartPosition=FormStartPosition.CenterScreen;Size=view=="main"?new Size(1360,860):view=="map"?new Size(900,640):new Size(610,690);
    string geometry=Path.Combine(C.User,"window-"+view+".json");
    try{var geo=C.Obj(File.ReadAllText(geometry));var rect=new Rectangle(Convert.ToInt32(geo["x"]),Convert.ToInt32(geo["y"]),Convert.ToInt32(geo["w"]),Convert.ToInt32(geo["h"]));if(rect.Width>=390 && rect.Height>=300 && Screen.AllScreens.Any(sc=>Rectangle.Intersect(sc.WorkingArea,rect).Width>=130 && Rectangle.Intersect(sc.WorkingArea,rect).Height>=80)){StartPosition=FormStartPosition.Manual;Bounds=rect;}}catch{}
@@ -112,7 +112,13 @@ internal class Desk : Form {
        case "cityClose":if(arg=="camera")result=await city.CloseAtCamera();else city.Dispose();break;
        case "streetView":await ShowStreet(arg,val);break;
        case "external":OpenUrl(arg);break;
-       case "window":if(arg=="detail")OpenReader(val);else if(new[]{"map","list","brief"}.Contains(arg))new Desk(arg,val).Show();break;
+       case "countrySource":if(view!="country")throw new InvalidOperationException();result=await Task.Run(()=>Net.CountrySource(arg));break;
+       case "pinCountry":if(view!="country")throw new InvalidOperationException();TopMost=val=="true";result=TopMost;break;
+       case "window":if(arg=="country" && System.Text.RegularExpressions.Regex.IsMatch(val,@"^[A-Z0-9-]{3,5}$")){
+         var panel=windows.FirstOrDefault(w=>!w.IsDisposed && w.view=="country" && w.data==val)??new Desk("country",val);
+         if(panel.WindowState==FormWindowState.Minimized)panel.WindowState=FormWindowState.Normal;
+         panel.Show();panel.Activate();
+       }else if(arg=="detail")OpenReader(val);else if(new[]{"map","list","brief"}.Contains(arg))new Desk(arg,val).Show();break;
        case "key":if(quitting)throw new IOException("正在重启");Net.SetKey(arg,val);break;
        case "export":
          if(quitting)throw new IOException("正在重启");tasks++;

@@ -26,3 +26,5 @@ OpenFreeMap 的 planet TileJSON 提供全球 OpenMapTiles 矢量瓦片。客户�
 
 地形使用 Esri World Shaded Relief 和 Terrain Tiles 的 Terrarium 高程瓦片。三维卫星影像按一倍高程绘制。军事图的国家轮廓叠加北约公布的成员和加入年份。[Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) · [北约成员与加入年份](https://www.nato.int/en/about-us/organization/nato-member-countries)
 
+
+Capital names and IANA time zones in atlas/capitals.json are derived from GeoNames countryInfo, allCountries and alternateNamesV2, licensed under CC BY 4.0 (https://www.geonames.org/ and https://creativecommons.org/licenses/by/4.0/). Regenerate with tools/Build-Capitals.py.

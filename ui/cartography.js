@@ -183,10 +183,7 @@ function setupCartography(){
     const code=f.properties.iso;countryLayers.set(code,p);shownGeometry.set(code,f.geometry);
     p.on('dblclick',e=>{
       if(e.originalEvent)L.DomEvent.stopPropagation(e.originalEvent);
-      const ll=[e.latlng.lat,e.latlng.lng];
-      const area=code==='CHN'&&Object.keys(areas).find(key=>insideArea(key,ll));
-      if(map.getZoom()>=9||region===(area||code))map.setZoomAround(e.latlng,Math.min(19,map.getZoom()+1));
-      else setRegion(area||code);
+      openCountry(code);
     });
   }}).addTo(map);
   L.control.scale({position:'bottomleft',imperial:false,maxWidth:95}).addTo(map);

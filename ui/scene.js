@@ -200,6 +200,10 @@ function initCityScene(){
     attributionControl:{compact:true},canvasContextAttributes:{antialias:true}});
    wrap.classList.add('using-city');desktopGlobe.updateVisibility();
    scene.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'top-right');
+   scene.on('dblclick',e=>{
+    const code=countryAt([e.lngLat.lat,e.lngLat.lng]);
+    if(code){e.preventDefault();openCountry(code)}
+   });
    scene.on('moveend',event=>{if(event.originalEvent){const c=scene.getCenter();followMapCenter(c.lat,c.lng,scene.getZoom()<2)}});
    const instance=scene;
    scene.on('load',async()=>{
