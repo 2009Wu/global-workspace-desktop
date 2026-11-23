@@ -24,3 +24,14 @@ body.votes-window{display:flex;flex-direction:column}
 
 
 #ballotMap .leaflet-interactive:focus{outline:none}#ballotMap .leaflet-interactive:focus-visible{stroke:#f2fbff;stroke-width:2.5px}
+
+#dialog[data-page=voteHistory]{width:min(620px,90vw)}
+.vote-history-filters,.vote-history-tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
+.vote-history-tabs button[aria-pressed=true]{background:#214741;border-color:#487e74;color:#c2efe5}
+.vote-history-filters label{display:flex;align-items:center;gap:6px;color:#abc2c9}
+.vote-history-filters select{max-width:190px}
+.vote-history-list{display:grid;gap:3px;margin:6px 0}
+.vote-history-row{display:grid;gap:4px;white-space:normal;text-align:start;height:auto;min-height:44px;width:100%;padding:9px 11px}
+.vote-history-row small{color:#b1c5cb;font-size:12px;font-variant-numeric:tabular-nums}
+
+

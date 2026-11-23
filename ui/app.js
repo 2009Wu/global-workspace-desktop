@@ -478,7 +478,7 @@ function wire(){
  $('ukraineTopic').onclick=()=>{setRegion('001');$('query').value=filter='Ukraine';map.fitBounds(leafletBounds(featuresByCode.get('UKR')),{animate:false});render();sendSelection();};
  $('hormuzTopic').onclick=()=>{setRegion('001');$('query').value=filter='Hormuz';render();const e=cache.transits?.records?.[0]||allRows()[0];if(e)selectEvent(e,true);else sendSelection();};
  $('coffee').onclick=()=>rpc('external','https://ko-fi.com/little_wang');
- Object.entries(localeNames).forEach(([id,name])=>opt($('language'),id,name));$('language').onchange=async()=>{lang=$('language').value;settings.lang=lang;await putPref();configureMenus();if($('dialog').open)settingsScreen();};
+ Object.entries(localeNames).forEach(([id,name])=>opt($('language'),id,name));$('language').onchange=async()=>{lang=$('language').value;settings.lang=lang;await putPref();configureMenus();if($('dialog').open&&$('dialog').dataset.page!=='voteHistory')settingsScreen();};
  $('region').onchange=()=>setRegion($('region').value);$('layerSelect').onchange=()=>setLayer($('layerSelect').value);$('eventType').onchange=()=>{eventType=validEventType($('eventType').value);render();sendSelection();};$('level').onchange=()=>{minLevel=$('level').value;render();sendSelection();};$('query').oninput=()=>{filter=$('query').value;render();sendSelection();};
  $('imageryMode').onchange=()=>{applyImageryMode($('imageryMode').value);satLayer();sendSelection();};
  $('imageryRetry').onclick=()=>{activeImageryKey='';satLayer();};

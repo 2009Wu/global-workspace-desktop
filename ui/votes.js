@@ -59,7 +59,7 @@ function initVoteMap(){
  L.geoJSON(geometries,{style:f=>votePaint(voteIso(f)),onEachFeature:(f,path)=>{
   const code=voteIso(f);voteMembers.set(code,f);votePaths.set(code,path);
   path.bindTooltip(()=>make('span',countryName(f)+' · '+voteLabel(votingChoices.get(code)||'-')),{sticky:true});
-  path.on('click',()=>showVoter(code));
+  path.on('click',()=>chooseVoter(code));
  }}).addTo(voteMap);
  const fit=()=>voteMap.fitBounds(regionBounds,{padding:[3,4],animate:false});
  fit();
@@ -112,6 +112,7 @@ function localizeVoteView(){
  const ordered=[...voteMembers].map(([code,f])=>[code,countryName(f)]).sort((a,b)=>a[1].localeCompare(b[1],lang));
  for(const [code,name] of ordered)nation.add(new Option(name,code));
  populateResolutions();$('voteStatus').textContent=t(voteState);
+ if($('dialog').open&&$('dialog').dataset.page==='voteHistory')drawVoteHistory();
 }
 async function pullVotes(){
  try{
@@ -130,10 +131,13 @@ async function pullVotes(){
 async function startVotes(){
  document.body.classList.add('votes-window');$('voteView').hidden=false;$('headVersion').textContent='v'+version;
  initVoteMap();
- $('voteQuery').oninput=()=>{followNewest=false;populateResolutions()};
- $('voteSelect').onchange=()=>{followNewest=false;activeVote=$('voteSelect').value;displayRollCall()};
- $('voteNation').onchange=()=>showVoter($('voteNation').value);
- const [archive,recent]=await Promise.all([fetch('atlas/ga-votes.json').then(r=>r.json()),fetch('atlas/ga-recent.xml').then(r=>r.text())]);
+ $('voteQuery').oninput=()=>{followNewest=false;populateResolutions();clearTimeout(visitTimer);visitTimer=setTimeout(rememberVote,500)};
+ $('voteSelect').onchange=()=>{followNewest=false;activeVote=$('voteSelect').value;displayRollCall();rememberVote()};
+ $('voteNation').onchange=()=>chooseVoter($('voteNation').value);
+ $('voteHistoryOpen').onclick=openVoteHistory;
+ const [archive,recent,visits]=await Promise.all([fetch('atlas/ga-votes.json').then(r=>r.json()),fetch('atlas/ga-recent.xml').then(r=>r.text()),rpc('read','vote-history')]);
+ const stored=JSON.parse(visits);
+ voteVisits=Array.isArray(stored)?stored.filter(v=>v?.record?.id===v.id&&Array.isArray(v.record.groups)&&Number.isFinite(v.at)).slice(0,maxVoteVisits):[];
  for(const r of [...archive,...parseRollCalls(recent),...Object.values(readLocal(voteCacheKey,{}))])voteRecords.set(r.id,r);
- startDone=true;configureMenus();pullVotes();
+ startDone=true;configureMenus();if(!voteVisits.some(v=>v.id===activeVote))rememberVote();$('voteHistoryOpen').disabled=false;pullVotes();
 }

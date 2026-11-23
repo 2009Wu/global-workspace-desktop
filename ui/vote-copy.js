@@ -27,3 +27,21 @@ for(const [locale,line] of Object.entries(voteLanguages)){
  const labels=line.split('|');voteKeys.forEach((key,i)=>dictionaries[locale][key]=labels[i]);
 }
 
+const voteHistoryLabels={
+ 'zh-Hans':'历史记录|最近看过|历次表决|显示更多','zh-Hant':'歷史紀錄|最近看過|歷次表決|顯示更多',
+ en:'History|Recently viewed|Past votes|Show more',es:'Historial|Vistos recientemente|Votaciones anteriores|Ver más',
+ fr:'Historique|Consultations récentes|Votes passés|Afficher plus',de:'Verlauf|Zuletzt angesehen|Frühere Abstimmungen|Mehr anzeigen',
+ ja:'履歴|最近見た決議|過去の採決|さらに表示',ar:'السجل|شوهد مؤخرًا|التصويتات السابقة|عرض المزيد',arz:'السجل|اتشافت قريب|التصويتات اللي فاتت|عرض أكتر',
+ pt:'Histórico|Vistos recentemente|Votações anteriores|Ver mais',ru:'История|Недавно просмотренные|Прошлые голосования|Показать ещё',
+ hi:'इतिहास|हाल ही में देखे गए|पिछले मतदान|और दिखाएँ',bn:'ইতিহাস|সম্প্রতি দেখা|আগের ভোট|আরও দেখুন',
+ id:'Riwayat|Baru dilihat|Pemungutan suara terdahulu|Tampilkan lagi',ur:'تاریخچہ|حال ہی میں دیکھے گئے|سابقہ ووٹنگ|مزید دکھائیں',
+ pcm:'History|Wetin you don view|Past votes|Show more',mr:'इतिहास|अलीकडे पाहिलेले|पूर्वीचे मतदान|आणखी दाखवा',
+ vi:'Lịch sử|Đã xem gần đây|Các lần biểu quyết|Xem thêm',te:'చరిత్ర|ఇటీవల చూసినవి|గత ఓట్లు|మరిన్ని చూపించు',
+ sw:'Historia|Zilizotazamwa karibuni|Kura za awali|Onyesha zaidi',tr:'Geçmiş|Son görüntülenenler|Geçmiş oylamalar|Daha fazla göster'
+};
+for(const [locale,line] of Object.entries(voteHistoryLabels)){
+ const [voteHistory,voteVisits,voteArchive,voteMore]=line.split('|');
+ Object.assign(dictionaries[locale],{voteHistory,voteVisits,voteArchive,voteMore});
+}
+
+

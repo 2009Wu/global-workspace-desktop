@@ -10,7 +10,7 @@ const scripts=[
   'i18n.js','country-copy.js','vote-copy.js','map-themes.js','disclosures.js','official.js','flash.js','feeds.js',
   ...(lightView?[]:['atlas/terrain.js','atlas/districts/index.js','streets.js']),
   'local-time.js','locations.js','cartography.js',...(lightView?[]:['satellite.js','globe.js','scene.js']),
-  'reporting.js','translation.js',...(detailView?['article.js']:[]),'country.js',...(new URLSearchParams(location.search).get('view')==='votes'?['votes.js']:[]),'app.js'
+  'reporting.js','translation.js',...(detailView?['article.js']:[]),'country.js',...(new URLSearchParams(location.search).get('view')==='votes'?['votes.js','vote-history.js']:[]),'app.js'
 ];
 for(const url of scripts){
   const script=document.createElement('script');script.async=false;script.src=url;document.head.append(script);

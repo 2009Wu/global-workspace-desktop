@@ -125,8 +125,9 @@ internal class Desk : Form {
          if(quitting)throw new IOException("正在重启");tasks++;
          try{await Task.Yield();string folder=Build.Test?Path.Combine(C.Root,"test-exports"):Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);if(Build.Test)Directory.CreateDirectory(folder);using(var dlg=new SaveFileDialog{Filter="JSON (*.json)|*.json",FileName=Build.Test?Path.Combine(folder,"workspace-events.json"):"workspace-events.json",InitialDirectory=folder,RestoreDirectory=true}){if(dlg.ShowDialog(this)==DialogResult.OK){string dest=dlg.FileName;await Task.Run(()=>C.Atomic(dest,arg));}else result=false;}}finally{tasks--;}break;
        case "read":case "write":
-         if(arg!="saved"&&arg!="settings")throw new ArgumentException();string path=Path.Combine(C.User,arg+".json");
-         if(cmd=="read")result=C.Read(path,arg=="saved"?"[]":"{}");else{if(quitting)throw new IOException("正在重启");tasks++;try{C.Atomic(path,val);Broadcast("changed",arg);}finally{tasks--;}}break;
+         bool voteHistory=view=="votes" && arg=="vote-history";
+         if(arg!="saved"&&arg!="settings"&&!voteHistory)throw new ArgumentException();string path=Path.Combine(C.User,arg+".json");
+         if(cmd=="read")result=C.Read(path,arg=="settings"?"{}":"[]");else{if(quitting)throw new IOException("正在重启");tasks++;try{C.Atomic(path,val);if(!voteHistory)Broadcast("changed",arg);}finally{tasks--;}}break;
        case "bookmark":
          if(quitting)throw new IOException("正在重启");tasks++;
          try{var path2=Path.Combine(C.User,"saved.json");var saved=C.Json.Deserialize<List<Dictionary<string,object>>>(C.Read(path2,"[]"));var item=C.Obj(val);string key=C.Str(item,"id");saved.RemoveAll(x=>C.Str(x,"id")==key);if(arg=="add")saved.Insert(0,item);C.Atomic(path2,C.Json.Serialize(saved));Broadcast("changed","saved");}finally{tasks--;}break;
