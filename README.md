@@ -47,11 +47,11 @@ Windows x64 桌面应用。项目暂用功能描述作为窗口标题。地图�
 
 设置页可填写自己的 Flightradar24、Datalastic、X 或 GitHub 访问凭据。凭据用 Windows DPAPI 按当前用户加密，仅在本机保存。付费服务按用户自己的订阅计费。Telegram 输入允许公开预览的频道名。X 可自定义搜索条件。只有添加凭据后，相关按量服务才开始取数。
 
-**当前仓库是私有的。** 若要自动获取后续版本，在设置页的 GitHub 一栏填写仅允许访问本仓库、具有 Contents 只读权限的 fine-grained token，保存后点击「检查更新」。私人仓库对未授权请求可能返回 404，主界面正常启动。应用内没有开发者的共享令牌。
+从 [GitHub 最新正式版](https://github.com/2009Wu/global-workspace-desktop/releases/latest) 下载 Windows 安装包。仓库已公开，下载和应用内检查更新均无需登录 GitHub 或填写令牌。
 
 ## 更新与恢复
 
-固定产品 ID、仓库、附件名、应用版本集中在 `product.json`。启动后异步查询 GitHub 最新正式版。右下角提示和设置页共用一个安装流程。下载 ZIP 后先校验 ZIP 大小和 SHA-256，再校验产品、版本、每个文件的路径和摘要。GitHub HTTPS、私有仓库权限和发布者账户构成更新源的信任边界。
+固定产品 ID、仓库、附件名、应用版本集中在 `product.json`。启动后异步查询 GitHub 最新正式版。右下角提示和设置页共用一个安装流程。下载 ZIP 后先校验 ZIP 大小和 SHA-256，再校验产品、版本、每个文件的路径和摘要。GitHub HTTPS 和发布者账户构成更新源的信任边界。
 
 安装位置是当前用户 LocalAppData 下的 `LittleWang/GlobalWorkspace`。根目录中的启动器读取活动版本。更新进程等待应用退出，把完整的托管文件写到独立版本目录，保留上个版本，并原子切换活动版本。新界面加载成功后确认安装。中断时从桌面快捷方式重开即可恢复。设置、收藏和缓存都位于独立的 `user` 目录；用户导出的 JSON 由用户选择保存位置。
 
@@ -66,7 +66,7 @@ node .\tests\update-e2e.mjs
 
 验收脚本需要 Node.js 22 或以上和交互式 Windows 桌面。它在系统临时目录构建两个独立测试版本，运行假 GitHub 服务，操作真正的 Windows 客户端和更新进程。测试快捷方式放在临时桌面目录，测试产品 ID 与实际应用隔离。程序不包含本地测试服务地址。
 
-后续版本先改 `product.json` 的版本号，提交并推送到私有仓库 main。在已登录 GitHub CLI 的 Windows 机器上运行 `.\tools\Publish.ps1 -NotesFile <更新说明路径>`。脚本生成匹配的 `vX.Y.Z` 标签和 Release，上传 Windows ZIP、同名 `.sha256` 和 `update.json` 后发布。相同的正式版本不能覆盖。已安装的旧版通过固定地址发现更新。
+后续版本先改 `product.json` 的版本号，提交并推送到仓库的 main 分支。在已登录 GitHub CLI 的 Windows 机器上运行 `.\tools\Publish.ps1 -NotesFile <更新说明路径>`。脚本生成匹配的 `vX.Y.Z` 标签和 Release，上传 Windows ZIP、同名 `.sha256` 和 `update.json` 后发布。相同的正式版本不能覆盖。已安装的旧版通过固定地址发现更新。
 
 新闻城市索引取自 GeoNames 的 cities15000.zip（CC BY 4.0），2026-11-22 版本的 SHA-256 为 a15729cf99546631212e7c9bbb9ef0965d7a4bf213c39a891b279004c73f4da1。tools/Build-News-Places.py 生成压缩地名索引。[GeoNames](https://www.geonames.org/export/) · [IMF PortWatch](https://portwatch.imf.org/) · [埃及阿语翻译](https://translate.wmcloud.org/docs) · [尼日利亚皮钦语翻译](https://huggingface.co/spaces/NITHUB-AI/EHN-EnglisH-to-Nigerian-Pidgin-Translator)
 
