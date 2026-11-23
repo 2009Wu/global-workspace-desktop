@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([string]$OutputDirectory, [string]$TestVersion, [string]$TestFeed, [switch]$Release)
 $ErrorActionPreference='Stop'
 $project=Split-Path $PSScriptRoot -Parent
@@ -14,7 +14,7 @@ $tmp=Join-Path ([IO.Path]::GetTempPath()) ('workspace-build-'+[guid]::NewGuid().
 $payload=Join-Path $tmp 'package/payload';New-Item -ItemType Directory -Force $payload | Out-Null
 $repo=$config.repository;$feed=if($testMode){$TestFeed}elseif($repo){"https://api.github.com/repos/$repo/releases/latest"}else{''}
 $prod=if($testMode){$config.product+'.test.'+([uri]$TestFeed).Port}else{$config.product}
-$cs='using System.Reflection;[assembly:AssemblyVersion("'+$ver+'.0")][assembly:AssemblyFileVersion("'+$ver+'.0")] internal static class Build { public const string Version="'+$ver+'", Product="'+$prod+'", Repo="'+$repo+'", Asset="'+$config.asset+'", Feed="'+$feed+'"; public const bool Test='+$testMode.ToString().ToLower()+'; }'
+$cs='using System.Reflection;[assembly:AssemblyProduct("世界情报收集处")][assembly:AssemblyTitle("世界情报收集处")][assembly:AssemblyVersion("'+$ver+'.0")][assembly:AssemblyFileVersion("'+$ver+'.0")] internal static class Build { public const string Version="'+$ver+'", Product="'+$prod+'", Repo="'+$repo+'", Asset="'+$config.asset+'", Feed="'+$feed+'"; public const bool Test='+$testMode.ToString().ToLower()+'; }'
 $gen=Join-Path $tmp 'Build.cs';[IO.File]::WriteAllText($gen,$cs)
 $compiler=Join-Path $env:WINDIR 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
 function FileSha([string]$path){

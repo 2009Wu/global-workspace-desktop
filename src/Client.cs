@@ -61,13 +61,13 @@ internal class Desk : Form {
      core.Navigate(url);
    }catch{if(!popup.IsDisposed){popup.Close();OpenUrl(url);}}
  }
- Desk(string view,string data){city=new CitySurface(this);this.view=view;this.data=data;windows.Add(this);Text=view=="main"?"全球情报工作台":"全球情报工作台 · "+(view=="detail"?"事件详情":view=="map"?"地图":view=="brief"?"事件简报":"事件列表");
+ Desk(string view,string data){city=new CitySurface(this);this.view=view;this.data=data;windows.Add(this);Text=view=="main"?C.DisplayName:C.DisplayName+" · "+(view=="detail"?"事件详情":view=="map"?"地图":view=="brief"?"事件简报":"事件列表");
    StartPosition=FormStartPosition.CenterScreen;Size=view=="main"?new Size(1360,860):view=="map"?new Size(900,640):new Size(610,690);
    string geometry=Path.Combine(C.User,"window-"+view+".json");
    try{var geo=C.Obj(File.ReadAllText(geometry));var rect=new Rectangle(Convert.ToInt32(geo["x"]),Convert.ToInt32(geo["y"]),Convert.ToInt32(geo["w"]),Convert.ToInt32(geo["h"]));if(rect.Width>=390 && rect.Height>=300 && Screen.AllScreens.Any(sc=>Rectangle.Intersect(sc.WorkingArea,rect).Width>=130 && Rectangle.Intersect(sc.WorkingArea,rect).Height>=80)){StartPosition=FormStartPosition.Manual;Bounds=rect;}}catch{}
    FormClosing+=(s,e)=>{if(parked)return;try{var r=WindowState==FormWindowState.Normal?Bounds:RestoreBounds;C.Atomic(geometry,C.Json.Serialize(new{x=r.X,y=r.Y,w=r.Width,h=r.Height}));}catch{}};
    MinimumSize=view=="main"?new Size(800,540):new Size(390,340);BackColor=Color.FromArgb(14,25,33);Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-   Controls.Add(new Label{Text="全球情报工作台",AutoSize=true,ForeColor=Color.White,Location=new Point(30,35),Font=new Font("Microsoft YaHei UI",16)});
+   Controls.Add(new Label{Text=C.DisplayName,AutoSize=true,ForeColor=Color.White,Location=new Point(30,35),Font=new Font("Microsoft YaHei UI",16)});
    browser.Dock=DockStyle.Fill;Controls.Add(browser);browser.BringToFront();
    FormClosed+=(s,e)=>{city.Dispose();windows.Remove(this);if(standby==this)standby=null;if(view=="main"){quitting=true;foreach(var w in windows.ToArray())w.Close();}};Shown+=async(s,e)=>await EnsureBrowser();
  }

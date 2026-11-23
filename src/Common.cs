@@ -10,6 +10,7 @@ using System.Web.Script.Serialization;
 using System.Threading;
 
 internal static class C {
+    public const string DisplayName="世界情报收集处";
     public static readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = 24 * 1024 * 1024, RecursionLimit = 150 };
     public static readonly string Root = Build.Test ? Environment.GetEnvironmentVariable("ATLAS_TEST_HOME") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LittleWang", "GlobalWorkspace");
     public static string User { get { return Path.Combine(Root, "user"); } }
@@ -35,11 +36,33 @@ internal static class C {
     public static void Shortcut(){
         string desktop=Build.Test?Path.Combine(Root,"test-desktop"):Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
         Directory.CreateDirectory(desktop);string exe=Path.Combine(Root,"GlobalWorkspace.exe"),dest=null;
+        // Older installers create the stable launcher once. Refresh its Windows product name too.
+        string activeVersion=Read(Active,"");
+        if(activeVersion==Build.Version && File.Exists(exe)){
+            string versionLauncher=Path.Combine(VersionDir(activeVersion),"GlobalWorkspace.exe");
+            if(File.Exists(versionLauncher) && Hash(versionLauncher)!=Hash(exe)){
+                string temp=exe+"."+Guid.NewGuid().ToString("N")+".tmp";
+                try{File.Copy(versionLauncher,temp);File.Replace(temp,exe,null);}
+                catch(IOException e){Log("Launcher refresh: "+e.Message);}
+                finally{if(File.Exists(temp))File.Delete(temp);}
+            }
+        }
         dynamic shell=Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));
         foreach(string f in Directory.GetFiles(desktop,"*.lnk"))try{dynamic link=shell.CreateShortcut(f);if(String.Equals((string)link.TargetPath,exe,StringComparison.OrdinalIgnoreCase)||(string)link.Description==Build.Product){dest=f;break;}}catch{}
-        if(dest==null){dest=Path.Combine(desktop,"全球情报工作台.lnk");if(File.Exists(dest))dest=Path.Combine(desktop,"全球情报工作台 ("+Build.Product+").lnk");}
+        string defaultLink=Path.Combine(desktop,DisplayName+".lnk");
+        if(dest==null || LegacyShortcut(Path.GetFileNameWithoutExtension(dest))){
+            string available=defaultLink;
+            int suffix=2;
+            while(File.Exists(available))available=Path.Combine(desktop,DisplayName+" ("+(suffix++)+").lnk");
+            if(dest!=null)File.Move(dest,available);
+            dest=available;
+        }
         dynamic s=shell.CreateShortcut(dest);string current=Read(Active,"");string iconExe=current==""?exe:Path.Combine(VersionDir(current),"Client.exe");string icon=(File.Exists(iconExe)?iconExe:exe)+",0";
         if((string)s.TargetPath!=exe||(string)s.IconLocation!=icon||(string)s.WorkingDirectory!=Root||(string)s.Description!=Build.Product||(string)s.Arguments!=""){s.TargetPath=exe;s.IconLocation=icon;s.WorkingDirectory=Root;s.Description=Build.Product;s.Arguments="";s.Save();}
+    }
+    static bool LegacyShortcut(string name){
+        const string oldName="全球情报工作台";
+        return name==oldName || name==oldName+" ("+Build.Product+")";
     }
     public static void ShortcutSafe(){try{Shortcut();}catch(Exception e){Log("shortcut: "+e.Message);}}
     public static bool Own(Mutex m,int ms){try{return m.WaitOne(ms);}catch(AbandonedMutexException){return true;}}

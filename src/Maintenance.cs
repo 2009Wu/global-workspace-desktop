@@ -44,6 +44,6 @@ internal static class Maintenance {
     if(args.Length==1&&args[0]=="--start"){StartClient("");return;}
     if(update){string stage=Path.GetFullPath(args[1]);if(!stage.StartsWith(Path.Combine(C.Root,"incoming")+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("更新目录错误");Install(stage,C.VersionText(args[2]));try{Directory.Delete(stage,true);}catch{}}
     else if(args.Length==0)Install(AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\'),Build.Version);
- }catch(Exception e){C.Log("安装失败 "+e.Message);if(update && File.Exists(C.Active)){try{Recover();C.Atomic(Path.Combine(C.User,"update-error.txt"),e.Message);StartClient("");}catch{}}else MessageBox.Show(e.Message,"全球情报工作台");}
+ }catch(Exception e){C.Log("安装失败 "+e.Message);if(update && File.Exists(C.Active)){try{Recover();C.Atomic(Path.Combine(C.User,"update-error.txt"),e.Message);StartClient("");}catch{}}else MessageBox.Show(e.Message,C.DisplayName);}
  finally{mutex.ReleaseMutex();}}}
 }

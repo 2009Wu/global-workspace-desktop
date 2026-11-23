@@ -1,10 +1,10 @@
-# 全球情报工作台
+# 世界情报收集处
 
-Windows x64 桌面应用。项目暂用功能描述作为窗口标题。地图、事件列表、简报可以独立开窗；双击地图上的国家进入国家视图。拖动面板间的分隔线调整布局。收藏、窗口尺寸和设置跟随当前 Windows 用户保存。
+Windows x64 桌面应用。地图、事件列表、简报可以独立开窗；双击地图上的国家进入国家视图。拖动面板间的分隔线调整布局。收藏、窗口尺寸和设置跟随当前 Windows 用户保存。
 
 ## 安装
 
-1. 登录有权限的 GitHub 账户，从本仓库 Releases 下载 `GlobalWorkspace-Windows-x64.zip`。同一 Release 提供 ZIP 校验值。
+1. 从本仓库的 [最新正式版](https://github.com/2009Wu/global-workspace-desktop/releases/latest) 下载 `GlobalWorkspace-Windows-x64.zip`。同一 Release 提供 ZIP 校验值。
 2. 解压整个 ZIP，在解压目录里双击 `Install.exe`。安装器校验文件后启动主窗口，并在当前用户的桌面创建快捷方式。
 3. Windows 10/11 x64 需安装 Microsoft Edge WebView2 Runtime 和 .NET Framework 4.7.2 或更高版本。依赖 SDK 随源码提供。下载的 Windows 程序没有 Authenticode 发布者签名。
 

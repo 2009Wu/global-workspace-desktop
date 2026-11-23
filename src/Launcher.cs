@@ -6,5 +6,5 @@ internal static class Launcher {
     var journal=C.Obj(File.ReadAllText(C.Pending)); string prev=C.Str(journal,"previous"); version=prev.Length>0?prev:C.Str(journal,"next");
  }
  C.Run(Path.Combine(C.VersionDir(version),"Maintenance.exe"),"--start");
- }catch(Exception e){MessageBox.Show(e.Message,"全球情报工作台");}}
+ }catch(Exception e){MessageBox.Show(e.Message,C.DisplayName);}}
 }
