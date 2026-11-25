@@ -29,7 +29,7 @@ async function connect(view='main'){const target=await until(async()=>(await pag
  const call=(method,params={})=>new Promise((resolve,reject)=>{let id=++seq;jobs.set(id,{resolve,reject});ws.send(JSON.stringify({id,method,params}));});
  const ev=async expr=>{const r=await call('Runtime.evaluate',{expression:expr,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;};
  const click=async selector=>{const pt=await until(()=>ev('(()=>{let e=document.querySelector('+JSON.stringify(selector)+');if(!e||e.disabled)return null;e.scrollIntoView({block:"center",inline:"nearest"});let r=e.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2;return r.width&&r.height&&e.contains(document.elementFromPoint(x,y))?[x,y]:null;})()'));for(const type of ['mousePressed','mouseReleased'])await call('Input.dispatchMouseEvent',{type,x:pt[0],y:pt[1],button:'left',clickCount:1});};
- await until(()=>ev('typeof startDone!=="undefined" && startDone'));return {ev,click,call,ws};}
+ await until(()=>ev('typeof startDone!=="undefined" && startDone'));if(view==='main'&&await ev('document.querySelector("#returnDigest")?.open'))await click('#digestClose');return {ev,click,call,ws};}
 const read=f=>fs.readFileSync(f,'utf8');
 const active=()=>read(path.join(home,'active.txt')).trim();
 async function cleanJournal(){await until(()=>!fs.existsSync(path.join(home,'pending.json')));}

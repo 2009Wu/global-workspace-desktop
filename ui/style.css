@@ -18,3 +18,4 @@ header{height:59px;padding:0 16px;display:flex;align-items:center;gap:12px;borde
 .event-location button,.location-card button{justify-self:start;font-size:12px}
 .marker-choices button{text-align:start;width:100%}
 .nearby-names:empty{display:none}
+#rows.windowed{display:block;overflow-anchor:none}#rows.windowed .row{box-sizing:border-box;height:78px;min-height:78px;max-height:78px;margin:0;overflow:hidden}#rows.windowed .rowtitle{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}

@@ -14,7 +14,7 @@ const qualityModes={
  smooth:{name:'优先流畅',gl:.85,cpu:.48,fps:20},
  sharp:{name:'优先清晰',gl:2,cpu:.85,fps:40}
 };
-let quality=settings.mapQuality==='smooth'?'smooth':'auto';
+let quality=lightDevice||settings.mapQuality==='smooth'?'smooth':'auto';
 let lastGlobeKey='',lastView='',movingUntil=0,settledTimer=0;
 function createSphereRenderer(){
  const surface=document.createElement('canvas');surface.setAttribute('aria-hidden','true');
@@ -71,7 +71,7 @@ function createSphereRenderer(){
   gl.drawArrays(gl.TRIANGLES,0,3);
  }};
 }
-const gpuGlobe=createSphereRenderer();let pixels;
+const gpuGlobe=lightDevice?null:createSphereRenderer();let pixels;
 async function loadDetailedSurface(){
  const preferred=gpuGlobe?.maxSize>=8192?8192:4096;
  for(const size of new Set([preferred,4096])){
@@ -286,7 +286,7 @@ canvas.ondblclick=e=>{
 };
 globe.addEventListener('wheel',e=>{e.preventDefault();const rect=globe.getBoundingClientRect();queueZoom(wheelLevels(e),L.point(e.clientX-rect.left,e.clientY-rect.top),false)},{passive:false});canvas.onkeydown=e=>{const moves={ArrowLeft:[0,-12],ArrowRight:[0,12],ArrowUp:[9,0],ArrowDown:[-9,0]};if(moves[e.key]){e.preventDefault();const [dy,dx]=moves[e.key];focusAt(Math.max(-85,Math.min(85,lat+dy)),lon+dx)}if(e.key==='+'||e.key==='=')zoomBy(1.18);if(e.key==='-')zoomBy(1/1.18)};
 
-let requested=readLocal('desk:mapProjection','globe')!=='flat',visible=false,focused=null,markerKey='',groups=[];
+let requested=readLocal('desk:mapProjection',lightDevice?'flat':'globe')!=='flat',visible=false,focused=null,markerKey='',groups=[];
 let detailMode=false,detailZoom=0;
 map.on('zoomend',()=>{
  if(detailMode&&layer!=='sat'&&map.getZoom()<detailZoom-.25){
@@ -313,7 +313,7 @@ function updateVisibility(){
  if(visible!==on&&gesture&&layer==='sat')stopWheel();globe.hidden=!on;visible=on;$('mapWrap').classList.toggle('using-globe',on);
  toggle.hidden=cityScene?.active||['sat','terrain','military'].includes(layer);const zh=lang.startsWith('zh');toggle.textContent=on?(zh?'切换平面地图':'Flat map'):(zh?'切换球面地图':'Globe');
  if($('netToggle'))$('netToggle').hidden=!on;
- quality=settings.mapQuality==='smooth'?'smooth':'auto';
+ quality=lightDevice||settings.mapQuality==='smooth'?'smooth':'auto';
  return on;
 }
 function regionFocus(){
@@ -453,5 +453,14 @@ const atlasLayer=(()=>{
  return {position,request,get count(){return links.length},get fresh(){return links.filter(l=>live(l.r)).length},get busy(){return busy},get records(){return records.size}}
 })();
 
- loadDetailedSurface();new ResizeObserver(refreshGlobe).observe(globe);updateVisibility();refreshGlobe();return {camera:()=>({center:[lon,lat],zoom:Math.max(0,Math.log2(tau*stateGeo().r*Math.cos(lat*rad)/512))}),spherePoint,restoreCamera(center,level){stopWheel();cancelAnimationFrame(anim);lat=center.lat;lon=center.lng;const base=Math.min(globe.clientWidth*.489,globe.clientHeight*.466)||Math.min(map.getSize().x*.489,map.getSize().y*.466);const scale=512*2**level/(tau*base*Math.max(.08,Math.cos(lat*rad)));detailMode=requested&&scale>3.15;detailZoom=level+1+Math.log2(3.15/scale);zoom=Math.max(.65,Math.min(3.15,scale));updateVisibility();map.setView([lat,lon],level+1,{animate:false});refreshGlobe()},refreshNetwork:atlasLayer.request,updateVisibility,regionFocus,pinRecords,locate,redraw:refreshGlobe,get visible(){return visible},get renderer(){return gpuGlobe?.ready?'WebGL':'Canvas'},get fresh(){return atlasLayer.fresh}};
+ if(!lightDevice)loadDetailedSurface();new ResizeObserver(refreshGlobe).observe(globe);updateVisibility();refreshGlobe();return {
+  workspaceCamera:()=>({lon,lat,zoom,requested,detailMode,detailZoom,arcs:$('netToggle').getAttribute('aria-pressed')==='true'}),
+  applyWorkspaceCamera(c){
+    stopWheel();cancelAnimationFrame(anim);focused=null;
+    lon=c.lon;lat=c.lat;zoom=c.zoom;requested=c.requested;detailMode=c.detailMode;detailZoom=c.detailZoom;
+    const arcs=$('netToggle');
+    if(typeof c.arcs==='boolean'&&(arcs.getAttribute('aria-pressed')==='true')!==c.arcs)arcs.click();
+    updateVisibility();refreshGlobe();
+  },
+  camera:()=>({center:[lon,lat],zoom:Math.max(0,Math.log2(tau*stateGeo().r*Math.cos(lat*rad)/512))}),spherePoint,restoreCamera(center,level){stopWheel();cancelAnimationFrame(anim);lat=center.lat;lon=center.lng;const base=Math.min(globe.clientWidth*.489,globe.clientHeight*.466)||Math.min(map.getSize().x*.489,map.getSize().y*.466);const scale=512*2**level/(tau*base*Math.max(.08,Math.cos(lat*rad)));detailMode=requested&&scale>3.15;detailZoom=level+1+Math.log2(3.15/scale);zoom=Math.max(.65,Math.min(3.15,scale));updateVisibility();map.setView([lat,lon],level+1,{animate:false});refreshGlobe()},refreshNetwork:atlasLayer.request,updateVisibility,regionFocus,pinRecords,locate,redraw:refreshGlobe,get visible(){return visible},get renderer(){return gpuGlobe?.ready?'WebGL':'Canvas'},get fresh(){return atlasLayer.fresh}};
 }

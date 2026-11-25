@@ -29,6 +29,22 @@ function isConflict(e){return e.layer==='conflict'||(e.layer==='politics'&&confl
 const placeIndex=new Map();
 const isoByTwo=new Map(countryFeatures.map(f=>[f.properties.iso2,f.properties.iso]));
 const norm=s=>s.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().trim();
+const reportCountries=new Map(countryFeatures.filter(f=>f.properties.en).map(f=>[norm(f.properties.en),f.properties.iso]));
+const reportRegions=new Map();
+function qualifiedRegion(text){
+  // Match an explicit relationship such as "Colombia's Chocó department".
+  const pairs=text.matchAll(/([\p{Lu}][\p{L}-]*(?:\s+[\p{Lu}][\p{L}-]*){0,3})['’]s\s+([\p{Lu}][\p{L}-]*(?:\s+[\p{Lu}][\p{L}-]*){0,3})\s+(?:department|province|state|region)\b/gu);
+  let found;
+  for(const [,parent,name] of pairs){
+    const iso=reportCountries.get(norm(parent)),row=reportRegions.get(iso+'|'+norm(name));
+    if(!row)continue;
+    if(found&&found!==row)return null;
+    found=row;
+  }
+  if(!found)return null;
+  const [place,iso,lat,lon,placeZh,placeHant]=found;
+  return {anchor:'region',iso,place,placeZh,placeHant,location:[lat,lon]};
+}
 const specialPlaces=[
   ['city','UKR',[48.28,37.18],'Pokrovsk','红军城','紅軍城',['Pokrovsk','Krasnoarmiisk','Krasnoarmeysk','Покровськ','Покровск','红军城','紅軍城','波克罗夫斯克','波克羅夫斯克']],
   ['water','',[26.56,56.25],'Strait of Hormuz','霍尔木兹海峡','荷姆茲海峽',['Strait of Hormuz','Hormuz Strait','赫尔姆兹海峡','霍尔木兹海峡','霍爾木茲海峽','荷姆茲海峽']],
@@ -49,7 +65,10 @@ function explicitPlace(text){
   for(const m of text.matchAll(pattern)){
     const words=m[1].split(/\s+/);
     while(words.length){
-      const hits=placeIndex.get(norm(words.join(' ')));
+      const key=norm(words.join(' ').replace(/['’]s$|[.]+$/g,''));
+      // Bare country names can also be towns thousands of kilometres away.
+      if(reportCountries.has(key)&&!/\b(?:city|port|town) of /i.test(m[0]))break;
+      const hits=placeIndex.get(key);
       if(hits){if(hits.length===1){const [name,,cc,lat,lon]=hits[0];located.push({anchor:'city',iso:isoByTwo.get(cc)||'',location:[lat,lon],place:name});}break;}
       words.pop();
     }
@@ -57,11 +76,18 @@ function explicitPlace(text){
   return located.length&&located.every(x=>x.place===located[0].place)?located[0]:null;
 }
 function loadNewsPlaces(){
-  return readVector('news-cities').then(rows=>{
+  const cities=readVector('news-cities').then(rows=>{
     for(const row of rows)for(const name of new Set(row.slice(0,2).filter(Boolean).map(norm))){
       const bucket=placeIndex.get(name)||[];bucket.push(row);placeIndex.set(name,bucket);
     }
   }).catch(console.warn);
+  const regions=readVector('news-regions').then(rows=>{
+    for(const row of rows){
+      const key=row[1]+'|'+norm(row[0]);
+      reportRegions.set(key,reportRegions.has(key)?null:row);
+    }
+  }).catch(console.warn);
+  return Promise.all([cities,regions]);
 }
 function storyBundle(e){
   const seen=new Set([e.links?.[0]?.url]);
@@ -73,7 +99,7 @@ function storyBundle(e){
     const overlap=new Set((norm(x.title).match(/[a-z]{4,}/g)||[]).filter(w=>words.has(w)&&!ignore.has(w))).size;
     if(overlap<3&&!(overlap>=1&&e.place&&e.place===x.place))return false;
     seen.add(url);return true;
-  }).slice(0,4).map(x=>({title:x.title,time:x.time,source:x.source,url:x.links[0].url}));
+  }).slice(0,4).map(x=>({title:x.title,time:x.time,source:x.source,feed:x.feed,url:x.links[0].url}));
   return {...e,related};
 }
 const transitCols={

@@ -28,6 +28,10 @@ function sourcePlace(e){
   if(e.area&&areas[e.area])return areaName(e.area)+' · '+countryName(featuresByCode.get('CHN'));
   const country=featuresByCode.get(e.iso);
   if(e.anchor==='country'&&country)return countryName(country);
+  if(e.anchor==='region'&&country){
+    const label=lang==='zh-Hans'?e.placeZh:lang==='zh-Hant'?e.placeHant:null;
+    return countryName(country)+' · '+(label||e.place);
+  }
   if(e.anchor==='currency')return e.title.split(/\s{2,}/)[0];
   if(e.place)return plain(lang==='zh-Hans'&&e.placeZh?e.placeZh:lang==='zh-Hant'&&e.placeHant?e.placeHant:e.place);
   if(e.feed==='quake'||e.feed==='cloud')return (e.summary||'').split(' · ')[0];

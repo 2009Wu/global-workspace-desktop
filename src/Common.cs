@@ -28,6 +28,13 @@ internal static class C {
     }
     public static string VersionText(string value){Version v;if(!System.Text.RegularExpressions.Regex.IsMatch(value??"",@"^\d+\.\d+\.\d+$")||!Version.TryParse(value,out v)||v.ToString()!=value)throw new InvalidDataException("版本号无效");return value;}
     public static string VersionDir(string v){return Path.Combine(Versions,VersionText(v));}
+    public static bool InstallFromExtractedPayload(){
+        var payload=new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+        if(payload.Parent==null||!payload.Name.Equals("payload",StringComparison.OrdinalIgnoreCase))return false;
+        string package=payload.Parent.FullName,installer=Path.Combine(package,"Install.exe");
+        if(!File.Exists(Path.Combine(package,"manifest.json"))||!File.Exists(installer))return false;
+        Run(installer);return true;
+    }
     public static string Arg(string a){return "\""+a.Replace("\"","")+"\"";}
     public static Process Run(string exe,params string[] args){return Process.Start(new ProcessStartInfo(exe,String.Join(" ",args.Select(Arg))){UseShellExecute=false,WorkingDirectory=Path.GetDirectoryName(exe)});}
     public static void Init(){ServicePointManager.SecurityProtocol=SecurityProtocolType.Tls12;Directory.CreateDirectory(User);}

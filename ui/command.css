@@ -91,3 +91,11 @@ body.country-window{display:flex;flex-direction:column}
 .country-item button:hover{text-decoration:underline}
 #countryChoice{max-width:65%;margin-inline-end:10px}
 
+#workspacePresets{width:auto;max-width:12em;text-overflow:ellipsis}
+.workspace-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;margin-bottom:14px}
+.workspace-form label{grid-column:1/-1}
+.workspace-form input{min-width:0}
+.workspace-entry{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0}
+.workspace-entry button:first-child{overflow-wrap:anywhere;text-align:start}
+.rowtitle[data-pending-label]::after,.location-card strong[data-pending-label]::after{content:" · " attr(data-pending-label);color:#91a9b2;font:11px "Segoe UI",sans-serif}
+.info p[data-pending-label]::before{content:attr(data-pending-label);display:block;color:#91a9b2;font:12px "Segoe UI",sans-serif}

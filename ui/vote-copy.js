@@ -45,3 +45,6 @@ for(const [locale,line] of Object.entries(voteHistoryLabels)){
 }
 
 
+
+const modernBorderLabels={'zh-Hans':'现代国界示意，票数按当时会员国统计','zh-Hant':'現代國界示意，票數按當時會員國統計',en:'Present-day borders · votes by members at the time',de:'Heutige Grenzen · Stimmen der damaligen Mitglieder',es:'Fronteras actuales · votos de los miembros de entonces',fr:'Frontières actuelles · votes des membres de l’époque',ja:'現在の国境・投票は当時の加盟国別',pt:'Fronteiras atuais · votos dos membros da época',ru:'Современные границы · голоса государств-членов на тот момент',ar:'الحدود الحالية · أصوات الدول الأعضاء آنذاك',arz:'الحدود الحالية · أصوات الدول الأعضاء وقتها',hi:'वर्तमान सीमाएँ · उस समय के सदस्यों के मत',bn:'বর্তমান সীমানা · তৎকালীন সদস্যদের ভোট',id:'Batas saat ini · suara anggota pada saat itu',ur:'موجودہ سرحدیں · اس وقت کے اراکین کے ووٹ',pcm:'Borders today · votes of members at dat time',mr:'सध्याच्या सीमा · त्या वेळच्या सदस्यांची मते',vi:'Biên giới hiện nay · phiếu của các thành viên lúc đó',te:'ప్రస్తుత సరిహద్దులు · అప్పటి సభ్యుల ఓట్లు',sw:'Mipaka ya sasa · kura za wanachama wa wakati huo',tr:'Güncel sınırlar · o tarihteki üyelerin oyları'};
+for(const [locale,label] of Object.entries(modernBorderLabels))dictionaries[locale].voteModernBorders=label;

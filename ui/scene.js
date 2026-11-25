@@ -195,12 +195,12 @@ function initCityScene(){
   try{
    await loadCityLibrary();
    const c=map.getCenter(),camera=desktopGlobe.visible?desktopGlobe.camera():{center:[c.lng,c.lat],zoom:map.getZoom()-1};
-   autoModel=true;container.hidden=false;
+   autoModel=!lightDevice;container.hidden=false;
    scene=new maplibregl.Map({container,style:cityStyle(),...camera,pitch:45,maxPitch:68,maxZoom:19,renderWorldCopies:false,
-    attributionControl:{compact:true},canvasContextAttributes:{antialias:true}});
+    attributionControl:{compact:true},pixelRatio:lightDevice?Math.min(devicePixelRatio,1):devicePixelRatio,canvasContextAttributes:{antialias:!lightDevice}});
    wrap.classList.add('using-city');desktopGlobe.updateVisibility();
    scene.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'top-right');
-   scene.on('dblclick',e=>{
+   scene.on('move',signalMapUse);scene.on('dblclick',e=>{
     const code=countryAt([e.lngLat.lat,e.lngLat.lng]);
     if(code){e.preventDefault();openCountry(code)}
    });
@@ -224,6 +224,8 @@ function initCityScene(){
  new ResizeObserver(()=>scene?.resize()).observe(container);
  labels();
  return {get active(){return !!scene},labels,update,syncImagery,
+  leave,camera(){if(!scene)return null;const c=scene.getCenter();return {center:[c.lng,c.lat],zoom:scene.getZoom(),pitch:scene.getPitch(),bearing:scene.getBearing()};},
+  async restore(camera){if(!scene)await enter();if(scene){scene.stop();scene.jumpTo(camera);}},
   locate(e){closeModels();scene?.easeTo({center:[e.location[1],e.location[0]],zoom:regionalPoint(e)?(e.anchor==='city'?11:6):15})},
   frameRegion(){closeModels();const c=map.getCenter();scene?.easeTo({center:[c.lng,c.lat],zoom:map.getZoom()-1})}};
 }

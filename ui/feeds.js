@@ -1,5 +1,15 @@
 const FEED_INTERVAL_MS = 30_000;
+const chinaSources={
+ cnsChina:{layer:'politics',name:'中新网 · 国内',language:'zh-Hans'},
+ cnsWorld:{layer:'politics',name:'中新网 · 国际',language:'zh-Hans',flash:true},
+ cnsFinance:{layer:'money',name:'中新网 · 财经',language:'zh-Hans'},
+ rthkChina:{layer:'politics',name:'香港電台 · 大中華',language:'zh-Hant'},
+ rthkFinance:{layer:'money',name:'香港電台 · 財經',language:'zh-Hant'},
+ mfaBriefings:{layer:'politics',name:'中国外交部 · 例行记者会',language:'zh-Hans',flash:true}
+};
 const catalogs = {
+ ...Object.fromEntries(Object.entries(chinaSources).map(([id,s])=>[id,[s.layer,s.name]])),
+ nasdaqComposite:['money','Nasdaq'],cnbcMarkets:['money','CNBC'],sp500News:['money','Yahoo Finance · S&P 500'],
  ...officialSources,
  ...Object.fromEntries(Object.entries(flashSources).map(([id,[name]])=>[id,['politics',name+' · Bluesky']])),
  ...Object.fromEntries(Object.entries(disclosureSources).map(([id,s])=>[id,['cyber',s.name]])),
@@ -32,6 +42,8 @@ function xml(text){const doc=new DOMParser().parseFromString(text,'application/x
 function byName(el,n){return Array.from(el.getElementsByTagNameNS('*',n));}
 function content(el,n){return byName(el,n)[0]?.textContent?.trim()||'';}
 function rss(feed,text,doc=xml(text)){
+ const root=doc.documentElement.localName.toLowerCase();
+ if((root!=='rss'&&root!=='rdf')||!byName(doc,'channel').length)throw Error('Invalid RSS channel');
  return Array.from(doc.querySelectorAll('item')).slice(0,100).map(el=>{
  const title=content(el,'title'),summary=content(el,'description');
  let url=content(el,'link'),issued=content(el,'pubDate');
@@ -46,7 +58,69 @@ function rss(feed,text,doc=xml(text)){
  return record(feed,content(el,'guid')||url,title,time,point(coords[0],coords[1])||point(content(el,'lat'),content(el,'long')),severity,plain(summary).slice(0,1400),url,{publishedAt:dateISO(issued),source:content(el,'source')||catalogs[feed][1],excerpt:plain(content(el,'encoded')).slice(0,1500),media,place:content(el,'featureName')||content(el,'country')});
  });
 }
+function marketQuoteTime(value){
+ const m=/^([A-Za-z]{3}) (\d{1,2}), (\d{4}) (\d{1,2}):(\d{2}) (AM|PM) ET$/i.exec(String(value));
+ if(!m)return '';
+ const month='jan feb mar apr may jun jul aug sep oct nov dec'.split(' ').indexOf(m[1].toLowerCase());
+ if(month<0||+m[4]<1||+m[4]>12||+m[5]>=60)return '';
+ const hour=+m[4]%12+(m[6].toUpperCase()==='PM'?12:0);
+ const day=Date.UTC(+m[3],month,+m[2],hour,+m[5]);
+ // Verify the cash-session clock against New York in both standard and daylight time.
+ const fmt=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hourCycle:'h23',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'});
+ for(const offset of [4,5]){
+   const time=new Date(day+offset*3600000),p=Object.fromEntries(fmt.formatToParts(time).map(v=>[v.type,+v.value]));
+   if(p.year===+m[3]&&p.month===month+1&&p.day===+m[2]&&p.hour===hour&&p.minute===+m[5])return time.toISOString();
+ }
+ return '';
+}
+function parseNasdaq(data){
+ const q=data?.primaryData,time=marketQuoteTime(q?.lastTradeTimestamp);
+ const number=(s,percent=false)=>{
+   const value=String(s??'').trim().replace(/,/g,'');
+   if(!(percent?/^[+-]?\d+(?:\.\d+)?%$/:/^[+-]?\d+(?:\.\d+)?$/).test(value))return NaN;
+   return Number(value.replace('%',''));
+ };
+ const price=number(q?.lastSalePrice),pct=number(q?.percentageChange,true);
+ if(data?.symbol!=='COMP'||!(price>0)||!Number.isFinite(pct)||!time)throw Error('Nasdaq quote unavailable');
+ const quote={price,pct,live:q.isRealTime===true};
+ const title='Nasdaq Composite · '+price.toLocaleString('en-US')+' · '+(pct>0?'+':'')+pct+'%';
+ return [record('nasdaqComposite',time.slice(0,10),title,time,null,0,'','https://www.nasdaq.com/market-activity/index/comp',{publishedAt:time,quote})];
+}
+function quoteHeadline(e){
+ const name=lang==='zh-Hans'?'纳斯达克综合指数':lang==='zh-Hant'?'納斯達克綜合指數':'Nasdaq Composite';
+ const pct=new Intl.NumberFormat(lang,{style:'percent',signDisplay:'exceptZero',minimumFractionDigits:2,maximumFractionDigits:2}).format(e.quote.pct/100);
+ return name+'　'+e.quote.price.toLocaleString(lang,{minimumFractionDigits:2,maximumFractionDigits:2})+'　'+pct;
+}
+function mentionsSP500(e){
+ return /\bS\s*&\s*P\s*[-–]?\s*500\b|\bStandard\s*(?:&|and)\s*Poor['’]?s\s*500\b|[标標](?:[准準]普[尔爾]|普)\s*(?:500|五百)/iu.test((e.title+' '+(e.summary||'')).normalize('NFKC'));
+}
 function parseFeed(id,raw){
+ if(id==='sp500News')return rss(id,raw).filter(e=>e.publishedAt&&e.links[0].url&&mentionsSP500(e)).map(e=>{
+   const publisher=new URL(e.links[0].url).hostname.replace(/^www\./,'');
+   if(e.source===catalogs[id][1])e.source=publisher;
+   e.links[0].name=e.source;
+   return e;
+ });
+ if(id==='mfaBriefings'){
+   const base='https://www.mfa.gov.cn/web/fyrbt_673021/jzhsl_673025/';
+   const doc=new DOMParser().parseFromString(raw,'text/html'),rows=[];
+   for(const link of doc.querySelectorAll('.newsBd .list1 a[href]')){
+     const href=link.getAttribute('href'),match=/^\.\/\d{6}\/t(\d{4})(\d\d)(\d\d)_\d+\.shtml$/.exec(href);
+     if(!match)continue;
+     const date=match.slice(1).join('-'),url=new URL(href,base).href;
+     const title=link.textContent.replace(/（\d{4}-\d\d-\d\d）\s*$/,'').trim();
+     if(title)rows.push(record(id,url,title,date,null,0,'',url,{publishedAt:date}));
+   }
+   if(!rows.length)throw Error('Press briefing index unavailable');
+   return rows;
+ }
+ if(Object.hasOwn(chinaSources,id)){
+   const rows=rss(id,raw).filter(e=>e.title&&e.publishedAt&&e.links[0].url);
+   if(!rows.length)throw Error('News feed has no dated articles');
+   return rows;
+ }
+ if(id==='nasdaqComposite')return parseNasdaq(JSON.parse(raw).data);
+ if(id==='cnbcMarkets')return rss(id,raw).filter(e=>/\b(nasdaq|s&p\s?500|dow jones|dow industrials|wall street|stocks?|shares?|equities|stock markets?|earnings|futures)\b/i.test(e.title));
  if(Object.hasOwn(officialSources,id))return officialRecords(id,raw);
  if(Object.hasOwn(disclosureSources,id))return readDisclosures(id,raw,name=>{
    const hits=placeIndex.get(norm(name));if(hits?.length!==1)return null;

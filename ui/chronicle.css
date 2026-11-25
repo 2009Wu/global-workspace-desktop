@@ -1,0 +1,25 @@
+#timelineOpen{color:var(--accent);font-weight:600;padding:4px 10px}
+.timeline-window main,.timeline-window footer{display:none}
+#timelinePage{overflow:auto;flex:1;background:#101c24}
+.chronicle-wrap{max-width:780px;margin:auto;padding:32px clamp(18px,5vw,52px) 48px}
+.chronicle-kicker,.chronicle-source{color:var(--accent)}
+.chronicle-wrap h1{font-size:clamp(23px,3.6vw,34px);line-height:1.28;margin:10px 0}
+#timelineMeta,.chronicle-stamp,.chronicle-muted,.digest-row small{color:var(--quiet)}
+#timelineEntries{list-style:none;padding:0;margin:30px 0}
+#timelineEntries li{position:relative;border-inline-start:1px solid #38615f;padding:0 0 24px 22px;margin-inline-start:6px}
+#timelineEntries li::before{content:'';position:absolute;inset-inline-start:-5px;top:6px;width:9px;height:9px;border-radius:50%;background:var(--accent)}
+#timelineEntries h3{font-size:19px;margin:6px 0}#timelineEntries p{font-size:16px;line-height:1.65;overflow-wrap:anywhere;margin:5px 0 12px}
+.chronicle-stamp{font-size:13px;display:flex;gap:12px;flex-wrap:wrap}
+.chronicle-source{margin-inline-end:5px}
+#returnDigest{width:min(780px,92vw);height:min(665px,84vh);max-height:88vh;background:#14232c;border:1px solid #47716e;border-radius:12px}
+.digest-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:24px 28px 18px;border-bottom:1px solid var(--rim)}
+#digestTitle{font-size:clamp(22px,3vw,30px);margin:0}
+#digestClose{font-size:16px;min-width:78px;min-height:42px;border-color:#6ba99c}
+#digestBody{overflow:auto;flex:1;padding:0 28px 20px}#digestBody h3{font-size:19px;color:var(--accent);margin:22px 0 8px}
+.digest-row{display:block;text-align:start;background:transparent;width:100%;border:0;border-bottom:1px solid var(--rim);border-radius:0;padding:11px 4px}
+.digest-row:hover{background:#1b333c}.digest-row small,.digest-row strong{display:block}.digest-row small{font-size:13px;margin-bottom:3px}.digest-row strong{font-size:17px;line-height:1.45}
+
+
+#timelinePick{margin:14px 0 6px;width:100%;max-width:100%;font-size:14px}
+#digestBody [data-fallback]::after{content:" · " attr(data-fallback);font:12px "Segoe UI",sans-serif;color:#b6a786}
+#digestBody [data-pending-label]::after,#timelinePage [data-pending-label]::after{content:" · " attr(data-pending-label);font:12px "Segoe UI",sans-serif;color:#91a9b2}

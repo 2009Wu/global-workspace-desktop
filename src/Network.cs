@@ -118,6 +118,15 @@ internal static class Net {
     }
     public static Task<string> Feed(string id,string arg){
         switch(id){
+        case "nasdaqComposite":return Get("https://api.nasdaq.com/api/quote/COMP/info?assetclass=index",revalidate:true);
+        case "cnsChina":return Get("https://www.chinanews.com.cn/rss/china.xml",revalidate:true);
+        case "cnsWorld":return Get("https://www.chinanews.com.cn/rss/world.xml",revalidate:true);
+        case "cnsFinance":return Get("https://www.chinanews.com.cn/rss/finance.xml",revalidate:true);
+        case "rthkChina":return Get("https://rthk.hk/rthk/news/rss/c_expressnews_greaterchina.xml",revalidate:true);
+        case "rthkFinance":return Get("https://rthk.hk/rthk/news/rss/c_expressnews_cfinance.xml",revalidate:true);
+        case "mfaBriefings":return Get("https://www.mfa.gov.cn/web/fyrbt_673021/jzhsl_673025/",revalidate:true);
+        case "cnbcMarkets":return Get("https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114",revalidate:true);
+        case "sp500News":return Get("https://feeds.finance.yahoo.com/rss/2.0/headline?s=%5EGSPC&region=US&lang=en-US",revalidate:true);
         case "adsb":case "ships":{
            if(!Regex.IsMatch(arg,@"^-?\d+(\.\d+)?,-?\d+(\.\d+)?$"))throw new ArgumentException("坐标无效");var pair=arg.Split(',');
            if(id=="ships")return Get("https://api.datalastic.com/api/v0/vessel_inradius?type=Cargo&radius=30&lat="+pair[0]+"&lon="+pair[1],Key("ships"),false,true);

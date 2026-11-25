@@ -11,22 +11,32 @@ from xml.etree import ElementTree as ET
 out = Path(__file__).resolve().parents[1] / "ui" / "atlas"
 choices = "YNAX"
 totals = ["total_yes", "total_no", "total_abstentions", "total_non_voting"]
+historical_titles = {"654350": "恢复中华人民共和国在联合国的合法权利"}
 records = {}
+latest = {}
 with open(sys.argv[1], newline="", encoding="utf-8-sig") as source:
     for row in csv.DictReader(source):
-        if row["date"] < "2015-01-01":
-            continue
         key = row["undl_id"]
         if key not in records:
             title = row["title"].split(" : resolution /")[0]
             records[key] = dict(id=key, symbol=row["resolution"], date=row["date"], title=title,
-                                votes={}, counts=[int(float(row[col])) for col in totals])
+                                votes={}, members={}, counts=[int(float(row[col])) for col in totals])
         record = records[key]
         code = row["ms_code"]
         if code in record["votes"] or row["ms_vote"] not in choices:
             raise ValueError(f"Invalid vote in {key}: {code}")
         record["votes"][code] = row["ms_vote"]
+        name = sys.intern(row["ms_name"].upper())
+        record["members"][code] = name
+        if code not in latest or latest[code][0] <= row["date"]:
+            latest[code] = (row["date"], name)
+defaults = {code: entry[1] for code, entry in latest.items()}
+profiles = {}
 for key, record in records.items():
+    overrides = tuple(sorted((c, n) for c, n in record.pop("members").items() if defaults[c] != n))
+    record["roster"] = profiles.setdefault(overrides, len(profiles))
+    if key in historical_titles:
+        record["names"] = {"zh": historical_titles[key]}
     votes = record.pop("votes")
     record["groups"] = [" ".join(sorted(cc for cc, v in votes.items() if v == choice)) for choice in choices]
     if [len(codes.split()) for codes in record["groups"]] != record["counts"]:
@@ -34,12 +44,13 @@ for key, record in records.items():
 if not records:
     raise ValueError("No recorded votes found")
 (out / "ga-votes.json").write_text(json.dumps(list(records.values()), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+(out / "ga-members.json").write_text(json.dumps(dict(defaults=defaults, profiles=[dict(p) for p in profiles]), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
 # Keep the fields read by the desktop parser, including official native-language titles.
 ns = "http://www.loc.gov/MARC21/slim"
 ET.register_namespace("", ns)
 tree = ET.parse(sys.argv[2])
-fields = {"245": "a", "767": "9t", "791": "a", "967": "cd", "992": "a", "996": "bcdef"}
+fields = {"245": "a", "767": "9t", "791": "a", "967": "cde", "992": "a", "996": "bcdef"}
 for record in tree.getroot():
     for field in list(record):
         tag = field.get("tag")

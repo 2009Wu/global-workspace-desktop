@@ -20,7 +20,7 @@ function openPastVote(record,country){
  clearTimeout(visitTimer);followNewest=false;
  if(!voteRecords.has(record.id))voteRecords.set(record.id,record);
  activeVote=record.id;$('voteQuery').value='';
- votingCountry=voteMembers.has(country)?country:'';
+ votingCountry=country||'';
  $('dialog').close();populateResolutions();rememberVote();
 }
 function historyItem(record,country,stamp){
@@ -29,9 +29,9 @@ function historyItem(record,country,stamp){
  const when=make('small',stamp+'   ·   '+record.symbol),heading=make('span',resolutionName(record));
  if(lang!=='en'&&resolutionName(record)===record.title)translated(heading,record.title,{feed:'un'});
  row.append(when,heading);
- if(country&&voteMembers.has(country)){
+ if(country){
   const pick=record.groups.findIndex(group=>group.split(' ').includes(country));
-  const kind=voteKinds[pick]||'-',mark=make('small',countryName(voteMembers.get(country))+' · '+voteLabel(kind));
+  const kind=voteKinds[pick]||'-',mark=make('small',seatName(country,record)+' · '+voteLabel(kind));
   mark.style.borderInlineStart='3px solid '+voteColors[voteKinds.indexOf(kind)];mark.style.paddingInlineStart='6px';row.append(mark);
  }
  return row;
@@ -55,7 +55,14 @@ function drawVoteHistory(){
   for(const y of new Set(records.map(r=>r.date.slice(0,4))))year.add(new Option(y,y));
   year.value=historyYear;
   nation.add(new Option(t('all'),''));
-  for(const item of Array.from($('voteNation').options).filter(o=>o.value))nation.add(new Option(item.text,item.value));
+  const members=new Map();
+  for(const record of records){
+   if(historyYear&&!record.date.startsWith(historyYear))continue;
+   for(const code of record.groups.join(' ').split(/\s+/))if(code&&!members.has(code))members.set(code,seatName(code,record));
+   if(!historyYear&&members.size===Object.keys(memberAtlas.defaults).length)break;
+  }
+  for(const [code,name] of [...members].sort((a,b)=>a[1].localeCompare(b[1],lang)))nation.add(new Option(name,code));
+  if(!members.has(historyNation))historyNation='';
   nation.value=historyNation;
   year.onchange=()=>{historyYear=year.value;historyLimit=40;drawVoteHistory()};
   nation.onchange=()=>{historyNation=nation.value;historyLimit=40;drawVoteHistory()};

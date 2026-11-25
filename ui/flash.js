@@ -59,7 +59,7 @@ function applyFlashCommit(msg){
  if(!row&&!prior&&c.operation==='create')return;
  const changes=recentChanges(feed),previous=changes.get(key);
  if(previous&&previous.sequence>=msg.time_us)return;
- if(row)row.firstSeen=prior?.firstSeen||new Date().toISOString();
+ if(row)rememberRevision(row,prior);
  changes.set(key,{row,sequence:msg.time_us,until:Date.now()+180000});
  if(!row&&!prior)return;
  const records=mergeFlash(feed,entry?.records||[]);
